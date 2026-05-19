@@ -1,0 +1,82 @@
+<template>
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <router-link to="/">Gestor d'Incidències</router-link>
+    </div>
+    
+    <div class="navbar-menu">
+      <router-link to="/issues/new">Nova Incidència</router-link>
+      <router-link to="/settings">Ajustaments</router-link>
+      <router-link to="/profile">El meu Perfil</router-link>
+      
+      <div class="user-selector">
+        <label for="user-select">Connectat com:</label>
+        <select id="user-select" v-model="selectedUserId" @change="changeUser">
+          <option v-for="user in fakeUsers" :key="user.id" :value="user.id">
+            {{ user.name }}
+          </option>
+        </select>
+      </div>
+    </div>
+  </nav>
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue'
+
+// Les nostres API Keys reals de Rails aniran aquí, de moment les deixo harcodejades
+// És la llista d'usuaris
+const fakeUsers = [
+  { id: 1, name: "Usuari 1", apiKey: "token_usuari_1" },
+  { id: 2, name: "Usuari 2", apiKey: "token_usuari_2" },
+  { id: 3, name: "Usuari 3", apiKey: "token_usuari_3" }
+]
+
+const selectedUserId = ref(1) // Per defecte l'usuari 1
+
+// Funció que s'executa quan canviem l'usuari al dropdown
+const changeUser = () => {
+  const user = fakeUsers.find(u => u.id === selectedUserId.value)
+  if (user) {
+    // Guardem la API Key al localStorage perquè estigui disponible globalment
+    localStorage.setItem('active_api_key', user.apiKey)
+    console.log("Usuari canviat a:", user.name, "API Key desada.")
+    // Opcional: Podríem fer un window.location.reload() aquí si volem forçar un refresc brusc de la vista
+  }
+}
+
+// Inicialització al carregar l'aplicació
+onMounted(() => {
+  changeUser()
+})
+</script>
+
+<style scoped>
+/* Estils bàsics per a la Navbar (podeu adaptar-los amb el vostre CSS) */
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background-color: #33475b;
+  color: white;
+}
+.navbar a {
+  color: white;
+  text-decoration: none;
+  margin-right: 15px;
+}
+.navbar-menu {
+  display: flex;
+  align-items: center;
+}
+.user-selector {
+  margin-left: 20px;
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: 5px 10px;
+  border-radius: 4px;
+}
+.user-selector select {
+  margin-left: 10px;
+}
+</style>
