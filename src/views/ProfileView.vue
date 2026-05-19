@@ -102,7 +102,51 @@
           </div>
           
           <div v-if="activeTab === 'watched'" class="tab-panel">
-            <h3 style="color: #008d8d;">[ Tasca #154 ] Llistat de les teves issues observades...</h3>
+            
+            <div v-if="watchedIssues && watchedIssues.length > 0">
+              <table class="profile-table">
+                <thead>
+                  <tr>
+                    <th style="width: 250px;">ISSUE</th>
+                    <th class="text-center">TYPE</th>
+                    <th class="text-center">SEVERITY</th>
+                    <th class="text-center">PRIORITY</th>
+                    <th class="text-center">STATUS</th>
+                    <th>MODIFIED</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="issue in watchedIssues" :key="issue.id">
+                    <td>
+                      <span style="color: #008aa8; font-weight: bold; margin-right: 8px;">#{{ issue.id }}</span>
+                      <router-link :to="'/issues/' + issue.id" class="issue-link">{{ issue.subject }}</router-link>
+                    </td>
+                    <td class="text-center">
+                      <span class="dot" :style="{ backgroundColor: issue.issue_type?.color || '#ccc' }" :title="issue.issue_type?.name"></span>
+                    </td>
+                    <td class="text-center">
+                      <span class="dot" :style="{ backgroundColor: issue.severity?.color || '#ccc' }" :title="issue.severity?.name"></span>
+                    </td>
+                    <td class="text-center">
+                      <span class="dot" :style="{ backgroundColor: issue.priority?.color || '#ccc' }" :title="issue.priority?.name"></span>
+                    </td>
+                    <td class="text-center">
+                      <span class="status-badge" :style="{ backgroundColor: issue.status?.color || '#e1f5fe', color: '#33475b' }">
+                        {{ issue.status?.name || 'New' }}
+                      </span>
+                    </td>
+                    <td style="color: #73818f; font-size: 13px;">
+                      {{ formatDate(issue.updated_at) }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            
+            <div v-else style="padding: 60px; text-align: center; color: #8a9ab0;">
+              No tens cap issue assignada actualment.
+            </div>
+
           </div>
 
           <div v-if="activeTab === 'comments'" class="tab-panel">
@@ -126,6 +170,7 @@ import { ref, onMounted, watch } from 'vue'
 const user = ref(null)               // Dades de l'usuari
 const activeTab = ref('assigned')    // Controla quina pestaña està visible
 const assignedIssues = ref([])
+const watchedIssues = ref([])
 
 const formatDate = (dateString) => { // Format de data: "DD MMM YYYY" (ejemplo: "15 Mar 2024")
   const options = { day: '2-digit', month: 'short', year: 'numeric' }
@@ -168,6 +213,27 @@ const fetchProfile = async () => {
         priority: { name: "Medium", color: "#f5222d" },
         status: { name: "Open", color: "#e1f5fe" },
         updated_at: "2024-03-14T15:30:00Z"
+      }
+    ]
+    // Mock de dades per a la recuperació d'issues vigilades
+    watchedIssues.value = [
+      {
+        id: 3,
+        subject: "Issue 3",
+        issue_type: { name: "Bug", color: "#ff4d4d" },
+        severity: { name: "High", color: "#ff9900" },
+        priority: { name: "High", color: "#ff6600" },
+        status: { name: "In Progress", color: "#1890ff" },
+        updated_at: "2024-03-13T09:15:00Z"
+      },
+      {
+        id: 4,
+        subject: "Issue 4",
+        issue_type: { name: "Feature", color: "#52c41a" },
+        severity: { name: "Medium", color: "#faad14" },
+        priority: { name: "Medium", color: "#f5222d" },
+        status: { name: "Open", color: "#e1f5fe" },
+        updated_at: "2024-03-12T11:45:00Z"
       }
     ]
   } catch (error) {
