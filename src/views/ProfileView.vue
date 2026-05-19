@@ -183,6 +183,7 @@ const fetchProfile = async () => {
     // Intenta recuperar la API Key desde el almacenamiento local del navegador, o usa un token simulado por defecto
     const currentKey = localStorage.getItem('active_api_key') || 'token_simulat_12345'
     
+    //TODO: Esborrar tots aquests mocks, en principi ja està connectat amb la api
     // Dades hardcodejades de moment
     user.value = {
       name: "alexmediavilla",
