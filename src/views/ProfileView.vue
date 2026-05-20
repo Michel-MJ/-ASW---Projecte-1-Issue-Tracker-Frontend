@@ -251,7 +251,7 @@ const fetchProfile = async () => {
     const userId = localStorage.getItem('active_user_id') || 3
     const currentApiKey = localStorage.getItem('active_api_key')
     
-    // 1. Lanzamos las peticiones iniciales en paralelo
+    // Peticions api
     const [userResponse, assignedResponse, watchedResponse, commentsResponse] = await Promise.all([
       api.get(`/users/${userId}`),
       api.get(`/users/${userId}/assigned_issues`),
@@ -266,20 +266,18 @@ const fetchProfile = async () => {
     
     const rawComments = commentsResponse.data || []
 
-    // 2. OPTIMIZACIÓN: Obtener solo los issue_id ÚNICOS para evitar peticiones duplicadas
-    // Si tienes 5 comentarios en la misma issue #4, solo haremos un GET en lugar de 5.
+    // Obtenim IDs de les issues dels comentaris
     const uniqueIssueIds = [...new Set(rawComments.map(c => c.issue_id).filter(Boolean))]
 
-    // 3. Hidratar en paralelo: Pedimos los detalles de todas las issues únicas a la vez
     const issuesResponses = await Promise.all(
       uniqueIssueIds.map(id => 
         api.get(`/issues/${id}`)
           .then(res => res.data)
-          .catch(() => ({ id, subject: 'Incidència protegida o esborrada' })) // Control de errores por si alguna falla
+          .catch(() => ({ id, subject: 'Incidència protegida o esborrada' }))
       )
     )
 
-    // 4. Crear un mapa de búsqueda rápida { id_issue: "Título de la issue" }
+    // Assignem titol de la issue a un mapa per accés ràpid
     const issueTitlesMap = {}
     issuesResponses.forEach(issue => {
       if (issue) {
@@ -287,20 +285,20 @@ const fetchProfile = async () => {
       }
     })
 
-    // 5. Inyectamos el título correspondiente a cada comentario antes de asignarlo a la variable reactiva
+    // Assignem el títol per a cada comentari
     comments.value = rawComments.map(comment => ({
       ...comment,
       issue_subject: issueTitlesMap[comment.issue_id] || 'Incidència sense títol'
     }))
     
-    // Actualizamos los contadores del sidebar
+    // Comptadors
     user.value.open_assigned_count = assignedIssues.value.length
     user.value.watched_issues_count = watchedIssues.value.length
     user.value.comments_count = comments.value.length
 
   } catch (error) {
     console.error('Error carregant el perfil o les seves llistes:', error)
-    // ... (Tu manejo de errores actual)
+    alert('Error carregant el perfil o les seves llistes.')
   }
 }
 
@@ -310,7 +308,6 @@ onMounted(() => {
   
   fetchProfile()
   
-  // Ahora reaccionará instantáneamente cuando cambies de perfil en la Navbar
   window.dispatchEvent(new Event('storage'))
   window.addEventListener('storage', fetchProfile)
 })
