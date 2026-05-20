@@ -40,6 +40,11 @@ const router = createRouter({
       path: '/settings',
       name: 'settings',
       component: SettingsView
+    },
+    {
+      path: '/issues/:id/edit',
+      name: 'issue-edit',
+      component: IssueForm
     }
   ]
 })
