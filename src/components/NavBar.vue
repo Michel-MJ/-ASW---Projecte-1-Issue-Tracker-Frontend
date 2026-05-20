@@ -27,12 +27,12 @@ import { ref, onMounted } from 'vue'
 // Les nostres API Keys reals de Rails aniran aquí, de moment les deixo harcodejades
 // És la llista d'usuaris
 const usersSelector = [
-  { id: 1, name: "MicheelMJ", apiKey: "3691c3dbe69d9da1f5452be45572be11" },
+  { id: 5, name: "MicheelMJ", apiKey: "3691c3dbe69d9da1f5452be45572be11" },
   { id: 2, name: "Usuari 2", apiKey: "token_usuari_2" },
-  { id: 3, name: "Usuari 3", apiKey: "token_usuari_3" }
+  { id: 3, name: "Michel-MJ", apiKey: "f09674836e81cd0958676d16c6153d1c" }
 ]
 
-const selectedUserId = ref(1) // Per defecte l'usuari 1
+const selectedUserId = ref(3) // Per defecte l'usuari 3
 
 // Funció que s'executa quan canviem l'usuari al dropdown
 const changeUser = () => {

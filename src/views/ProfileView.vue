@@ -172,32 +172,44 @@ const activeTab = ref('assigned')
 const assignedIssues = ref([])
 const watchedIssues = ref([])
 
+// Funció per formatar les dates (ex: "19 May 2026")
+const formatDate = (dateString) => {
+  if (!dateString) return '-'
+  const options = { day: '2-digit', month: 'short', year: 'numeric' }
+  return new Date(dateString).toLocaleDateString('en-GB', options)
+}
+
 const fetchProfile = async () => {
   try {
-    // 1. Leemos el ID del usuario seleccionado desde el localStorage
-    const userId = localStorage.getItem('active_user_id') || 2
+    const userId = localStorage.getItem('active_user_id') || 1
+    const currentApiKey = localStorage.getItem('active_api_key')
     
-    // 2. Hacemos la llamada real a tu endpoint de Rails (ej: /api/users/1)
-    // El interceptor de api.js le inyectará automáticamente la X-API-KEY
-    const response = await api.get(`/users/${userId}`)
+    // Crides a la API
+    const [userResponse, assignedResponse, watchedResponse] = await Promise.all([
+      api.get(`/users/${userId}`),
+      api.get(`/users/${userId}/assigned_issues`),
+      api.get(`/users/${userId}/watched_issues`)
+      // Quan facis la tasca #155 pots afegir aquí: api.get(`/users/${userId}/comments`)
+    ])
     
-    // 3. Asignamos los datos devueltos por Rails a nuestra variable reactiva
-    // OJO: Si tu controlador devuelve el usuario dentro de un objeto (ej: { user: {...} }), 
-    // deberás poner response.data.user
-    user.value = response.data
-
-    // 4. Aprovechamos para rellenar las pestañas con las relaciones que Rails ya envía
-    assignedIssues.value = response.data.assigned_issues || []
-    watchedIssues.value = response.data.watched_issues || []
+    user.value = userResponse.data
+    
+    user.value.api_key = currentApiKey
+    
+    assignedIssues.value = assignedResponse.data || []
+    watchedIssues.value = watchedResponse.data || []
+    
+    user.value.open_assigned_count = assignedIssues.value.length
+    user.value.watched_issues_count = watchedIssues.value.length
+    // user.value.comments_count = commentsResponse.data.length // (Per a la tasca #155)
 
   } catch (error) {
-    console.error('Error carregant el perfil des de l API:', error)
-    // Anti-frustración: Si falla la API, dejamos un objeto vacío para que al menos 
-    // no se quede la pantalla en blanco de "Carregant..." durante el desarrollo
+    console.error('Error carregant el perfil o les seves llistes:', error)
+    
     user.value = {
       name: "Error de conexió",
       full_name: "Backend no disponible",
-      bio: "Comprova que el teu Rails està encès i el CORS configurat."
+      bio: "Comprova que el teu Rails està encès i que el CORS et permet l'accés."
     }
   }
 }
