@@ -37,8 +37,9 @@ import { ref, onMounted } from 'vue'
 // És la llista d'usuaris
 const usersSelector = [
   { id: 5, name: "MicheelMJ", apiKey: "3691c3dbe69d9da1f5452be45572be11" },
-  { id: 2, name: "Usuari 2", apiKey: "token_usuari_2" },
-  { id: 3, name: "Michel-MJ", apiKey: "f09674836e81cd0958676d16c6153d1c" }
+  { id: 4, name: "rogerguinovart", apiKey: "f42ff930a1280208deac455fcd4ec990" },
+  { id: 3, name: "Michel-MJ", apiKey: "f09674836e81cd0958676d16c6153d1c" },
+  
 ]
 
 const selectedUserId = ref(3) // Per defecte l'usuari 3
