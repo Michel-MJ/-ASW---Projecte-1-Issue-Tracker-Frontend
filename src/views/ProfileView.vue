@@ -180,7 +180,6 @@ const activeTab = ref('assigned')
 const assignedIssues = ref([])
 const watchedIssues = ref([])
 
-// Variable para controlar el mensaje de copiado de la API Key
 const copied = ref(false)
 
 const formatDate = (dateString) => {
@@ -188,13 +187,11 @@ const formatDate = (dateString) => {
   return new Date(dateString).toLocaleDateString('en-GB', options)
 }
 
-// 3. FUNCIÓN PARA COPIAR AL PORTAPAPELES
 const copyApiKey = async () => {
   try {
     await navigator.clipboard.writeText(user.value.api_key)
-    copied.value = true // Mostramos el mensaje
+    copied.value = true
     
-    // Ocultamos el mensaje después de 2 segundos
     setTimeout(() => {
       copied.value = false
     }, 2000)

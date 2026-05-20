@@ -81,7 +81,6 @@ const handleFileUpload = (event) => {
   }
 }
 
-// 3. Enviar los cambios reales usando PATCH y FormData
 const saveProfile = async () => {
   saving.value = true
   const userId = localStorage.getItem('active_user_id') || 1
