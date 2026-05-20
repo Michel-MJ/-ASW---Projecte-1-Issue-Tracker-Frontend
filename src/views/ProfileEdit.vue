@@ -24,11 +24,6 @@
       </div>
 
       <div style="margin-bottom: 20px;">
-        <label style="display: block; font-size: 0.9rem; color: #888; margin-bottom: 8px;">Nom Complet</label>
-        <input type="text" v-model="form.full_name" class="input-subject" placeholder="Ex: Alex Michel Mediavilla" required />
-      </div>
-
-      <div style="margin-bottom: 20px;">
         <label style="display: block; font-size: 0.9rem; color: #888; margin-bottom: 8px;">Biografia</label>
         <textarea v-model="form.bio" class="input-description" style="min-height: 120px;" placeholder="Escriu una breu descripció sobre tu..."></textarea>
       </div>
@@ -47,86 +42,72 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import api from '../services/api' // El tuyo
+import api from '../services/api'
 
 const router = useRouter()
 const loading = ref(true)
 const saving = ref(false)
+
 const form = ref({
-  full_name: '',
   bio: '',
   avatar_url: ''
 })
 
-// Variables para manejar la subida del archivo de imagen
 const selectedFile = ref(null)
 const previewUrl = ref(null)
 
-// Función al cargar la página (Pedir datos actuales)
 const fetchCurrentData = async () => {
   try {
-    // Cuando el backend esté listo, descomenta esto:
-    const response = await api.get('/profile')
-    form.value.full_name = response.data.full_name
-    form.value.bio = response.data.bio
-    form.value.avatar_url = response.data.avatar_url
+    const userId = localStorage.getItem('active_user_id') || 1
     
-    // MOCK DATA (Simulamos los datos para no bloquearnos hoy)
-    setTimeout(() => {
-      form.value = {
-        full_name: 'Alex Michel Mediavilla',
-        bio: 'Estudiant de la FIB. Desenvolupador Full-Stack en procés.',
-        avatar_url: null
-      }
-      loading.value = false
-    }, 500) // 500ms simulando latencia de red
-
+    const response = await api.get(`/users/${userId}`)
+    
+    form.value.bio = response.data.bio || ''
+    form.value.avatar_url = response.data.avatar_url || ''
+    
+    loading.value = false
   } catch (error) {
-    console.error("Error carregant dades:", error)
+    console.error("Error carregant dades per editar:", error)
+    alert("No s'han pogut carregar les dades de l'usuari.")
     loading.value = false
   }
 }
 
-// Función cuando el usuario selecciona una foto
 const handleFileUpload = (event) => {
   const file = event.target.files[0]
   if (file) {
     selectedFile.value = file
-    // Creamos una URL temporal para que el usuario vea la foto antes de guardarla
     previewUrl.value = URL.createObjectURL(file) 
   }
 }
 
-// Función para enviar al backend (Guardar)
+// 3. Enviar los cambios reales usando PATCH y FormData
 const saveProfile = async () => {
   saving.value = true
+  const userId = localStorage.getItem('active_user_id') || 1
   
   try {
-    // Como hay un archivo de imagen, debemos usar FormData en vez de un JSON normal
     const formData = new FormData()
-    formData.append('user[full_name]', form.value.full_name)
+    
     formData.append('user[bio]', form.value.bio)
     
     if (selectedFile.value) {
-      formData.append('user[avatar]', selectedFile.value) // Así lo espera Rails ActiveStorage
+      formData.append('user[avatar]', selectedFile.value)
     }
 
-    // Cuando el backend esté listo, descomenta esto:
-    // await api.put('/profile', formData, {
-    //   headers: { 'Content-Type': 'multipart/form-data' }
-    // })
-    
-    // SIMULACIÓN DE GUARDADO
-    console.log("Enviando FormData al servidor:", form.value.full_name)
-    setTimeout(() => {
-      saving.value = false
-      alert("Perfil actualitzat correctament!")
-      router.push('/profile') // Redirigimos de vuelta al perfil
-    }, 800)
+    await api.patch(`/users/${userId}`, formData, {
+      headers: { 
+        'Content-Type': 'multipart/form-data' 
+      }
+    })
+        
+    window.dispatchEvent(new Event('storage')) //Refresquem la vista
+    router.push('/profile') 
 
   } catch (error) {
-    console.error("Error guardant perfil:", error)
-    alert("Hi ha hagut un error al guardar.")
+    console.error("Error guardant el perfil:", error)
+    alert("Error al guardar els canvis. Revisa els paràmetres o la consola.")
+  } finally {
     saving.value = false
   }
 }

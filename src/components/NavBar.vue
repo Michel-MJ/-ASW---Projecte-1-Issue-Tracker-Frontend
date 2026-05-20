@@ -42,7 +42,7 @@ const changeUser = () => {
     localStorage.setItem('active_api_key', user.apiKey)
     localStorage.setItem('active_user_id', user.id)
     console.log("Usuari canviat a:", user.name, "API Key desada.")
-    // Opcional: Podríem fer un window.location.reload() aquí si volem forçar un refresc brusc de la vista
+    window.dispatchEvent(new Event('storage'))
   }
 }
 

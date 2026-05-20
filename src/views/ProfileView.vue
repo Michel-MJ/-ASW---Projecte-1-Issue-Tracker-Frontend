@@ -3,8 +3,11 @@
     
     <aside class="issue-sidebar">
       <div style="text-align: center; margin-bottom: 20px;">
-        <div v-if="!user.avatar_url" class="avatar" style="width: 120px; height: 120px; font-size: 50px; margin: 0 auto; margin-bottom: 15px;">
-          {{ user.full_name ? user.full_name.charAt(0) : user.name.charAt(0) }}
+        
+        <img v-if="user.avatar_url" :src="user.avatar_url" alt="Avatar" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; margin: 0 auto 15px auto; display: block; border: 2px solid #eee;" />
+        
+        <div v-else class="avatar" style="width: 120px; height: 120px; font-size: 50px; margin: 0 auto; margin-bottom: 15px;">
+          {{ user.full_name ? user.full_name.charAt(0).toUpperCase() : user.name.charAt(0).toUpperCase() }}
         </div>
         
         <h2 style="color: #008aa8; margin: 0; font-weight: 300;">{{ user.full_name }}</h2>
@@ -33,8 +36,20 @@
 
       <div class="sidebar-item divider">
         <label>API Key</label>
-        <div style="background: #fdfdfd; padding: 10px; border: 1px solid #eee; border-radius: 4px; word-break: break-all; font-family: monospace; font-size: 0.9rem;">
-          {{ user.api_key }}
+        <div 
+          @click="copyApiKey" 
+          style="background: #fdfdfd; padding: 10px; border: 1px solid #eee; border-radius: 4px; cursor: pointer; transition: background 0.2s;"
+          title="Fes clic per copiar al portapapers"
+          onmouseover="this.style.backgroundColor='#f0fdfa'"
+          onmouseout="this.style.backgroundColor='#fdfdfd'"
+        >
+          <div style="font-family: monospace; font-size: 0.95rem; color: #33475b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            {{ user.api_key }}
+          </div>
+          
+          <div style="font-size: 0.75rem; margin-top: 6px; font-weight: bold;" :style="{ color: copied ? '#008d8d' : '#999' }">
+            {{ copied ? 'Copiada al portapapers!' : 'Fes clic a sobre per copiar' }}
+          </div>
         </div>
       </div>
       
@@ -45,7 +60,6 @@
 
     <main class="issue-main-content">
       <div class="issue-description-box" style="padding: 0;">
-        
         <div style="display: flex; border-bottom: 1px solid #eee; background: #fafafa;">
           <button @click="activeTab = 'assigned'" :class="['tab-link', { active: activeTab === 'assigned' }]">Open Assigned Issues</button>
           <button @click="activeTab = 'watched'" :class="['tab-link', { active: activeTab === 'watched' }]">Watched Issues</button>
@@ -54,7 +68,6 @@
 
         <div style="padding: 30px;">
           <div v-if="activeTab === 'assigned'" class="tab-panel">
-            
             <div v-if="assignedIssues && assignedIssues.length > 0">
               <table class="profile-table">
                 <thead>
@@ -94,15 +107,12 @@
                 </tbody>
               </table>
             </div>
-            
             <div v-else style="padding: 60px; text-align: center; color: #8a9ab0;">
               No tens cap issue assignada actualment.
             </div>
-
           </div>
           
           <div v-if="activeTab === 'watched'" class="tab-panel">
-            
             <div v-if="watchedIssues && watchedIssues.length > 0">
               <table class="profile-table">
                 <thead>
@@ -142,15 +152,13 @@
                 </tbody>
               </table>
             </div>
-            
             <div v-else style="padding: 60px; text-align: center; color: #8a9ab0;">
-              No tens cap issue assignada actualment.
+              No estàs observant cap issue actualment.
             </div>
-
           </div>
 
           <div v-if="activeTab === 'comments'" class="tab-panel">
-            <h3 style="color: #008d8d;">[ Tasca #155 ] El teu historial de comentaris...</h3>
+            <h3 style="color: #008d8d;">[ Tasca #155 ] El teu historial de comentaris anirà aquí...</h3>
           </div>
         </div>
       </div>
@@ -165,18 +173,34 @@
 
 <script setup>
 import { ref, onMounted, watch } from 'vue'
-import api from '../services/api' // El teu servei d'API configurat amb l'interceptor de la API Key
+import api from '../services/api' 
 
 const user = ref(null)
 const activeTab = ref('assigned')
 const assignedIssues = ref([])
 const watchedIssues = ref([])
 
-// Funció per formatar les dates (ex: "19 May 2026")
+// Variable para controlar el mensaje de copiado de la API Key
+const copied = ref(false)
+
 const formatDate = (dateString) => {
-  if (!dateString) return '-'
   const options = { day: '2-digit', month: 'short', year: 'numeric' }
   return new Date(dateString).toLocaleDateString('en-GB', options)
+}
+
+// 3. FUNCIÓN PARA COPIAR AL PORTAPAPELES
+const copyApiKey = async () => {
+  try {
+    await navigator.clipboard.writeText(user.value.api_key)
+    copied.value = true // Mostramos el mensaje
+    
+    // Ocultamos el mensaje después de 2 segundos
+    setTimeout(() => {
+      copied.value = false
+    }, 2000)
+  } catch (err) {
+    console.error('Error al copiar: ', err)
+  }
 }
 
 const fetchProfile = async () => {
@@ -184,16 +208,13 @@ const fetchProfile = async () => {
     const userId = localStorage.getItem('active_user_id') || 1
     const currentApiKey = localStorage.getItem('active_api_key')
     
-    // Crides a la API
     const [userResponse, assignedResponse, watchedResponse] = await Promise.all([
       api.get(`/users/${userId}`),
       api.get(`/users/${userId}/assigned_issues`),
       api.get(`/users/${userId}/watched_issues`)
-      // Quan facis la tasca #155 pots afegir aquí: api.get(`/users/${userId}/comments`)
     ])
     
     user.value = userResponse.data
-    
     user.value.api_key = currentApiKey
     
     assignedIssues.value = assignedResponse.data || []
@@ -201,20 +222,12 @@ const fetchProfile = async () => {
     
     user.value.open_assigned_count = assignedIssues.value.length
     user.value.watched_issues_count = watchedIssues.value.length
-    // user.value.comments_count = commentsResponse.data.length // (Per a la tasca #155)
 
   } catch (error) {
     console.error('Error carregant el perfil o les seves llistes:', error)
-    
-    user.value = {
-      name: "Error de conexió",
-      full_name: "Backend no disponible",
-      bio: "Comprova que el teu Rails està encès i que el CORS et permet l'accés."
-    }
-  }
+    alert("No s'ha pogut carregar el perfil de l'usuari.")}
 }
 
-// Escuchamos si el usuario cambia el selector de la Navbar para recargar los datos
 onMounted(() => {
   const savedTab = localStorage.getItem('activeProfileTab')
   if (savedTab) activeTab.value = savedTab
@@ -222,6 +235,10 @@ onMounted(() => {
   fetchProfile()
   
   window.addEventListener('storage', fetchProfile)
+})
+
+watch(activeTab, (newTab) => {
+  localStorage.setItem('activeProfileTab', newTab)
 })
 </script>
 
