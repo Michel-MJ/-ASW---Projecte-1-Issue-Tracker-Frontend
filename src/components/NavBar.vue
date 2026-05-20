@@ -1,14 +1,19 @@
 <template>
   <nav class="navbar">
-    <div class="navbar-brand">
-      <router-link to="/">Gestor d'Incidències</router-link>
+    
+    <div class="nav-left">
+      <span class="logo">TAIGA</span>
+      <router-link to="/issues" class="nav-link">
+        Issues
+      </router-link>
     </div>
     
-    <div class="navbar-menu">
-      <router-link to="/issues/new">Nova Incidència</router-link>
-      <router-link to="/settings">Ajustaments</router-link>
-      <router-link to="/profile">El meu Perfil</router-link>
+    <div class="nav-right">
       
+      <router-link to="/settings" class="settings-link">
+        <span class="settings-icon">⚙️</span> SETTINGS
+      </router-link>
+
       <div class="user-selector">
         <label for="user-select">Connectat com:</label>
         <select id="user-select" v-model="selectedUserId" @change="changeUser">
@@ -17,9 +22,13 @@
           </option>
         </select>
       </div>
+
+      <router-link to="/profile">El meu Perfil</router-link>
+
     </div>
   </nav>
 </template>
+
 
 <script setup>
 import { ref, onMounted } from 'vue'
