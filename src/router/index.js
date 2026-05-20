@@ -6,6 +6,7 @@ import IssueDetail from '../views/IssueDetail.vue'
 import IssueForm from '../views/IssueForm.vue'
 import ProfileView from '../views/ProfileView.vue'
 import SettingsView from '../views/SettingsView.vue'
+import ProfileEdit from '../views/ProfileEdit.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -29,6 +30,11 @@ const router = createRouter({
       path: '/profile',
       name: 'profile',
       component: ProfileView
+    },
+    {
+      path: '/profile/edit',
+      name: 'profile-edit',
+      component: ProfileEdit
     },
     {
       path: '/settings',
