@@ -3,8 +3,10 @@
     
     <aside class="issue-sidebar">
       <div style="text-align: center; margin-bottom: 20px;">
-        <div v-if="!user.avatar_url" class="avatar" style="width: 120px; height: 120px; font-size: 50px; margin: 0 auto; margin-bottom: 15px;">
-          {{ user.full_name ? user.full_name.charAt(0) : user.name.charAt(0) }}
+        <img v-if="user.avatar_url" :src="user.avatar_url" alt="Avatar" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; margin: 0 auto 15px auto; display: block; border: 2px solid #eee;" />
+        
+        <div v-else class="avatar" style="width: 120px; height: 120px; font-size: 50px; margin: 0 auto; margin-bottom: 15px;">
+          {{ user.full_name ? user.full_name.charAt(0).toUpperCase() : user.name.charAt(0).toUpperCase() }}
         </div>
         
         <h2 style="color: #008aa8; margin: 0; font-weight: 300;">{{ user.full_name }}</h2>
@@ -33,8 +35,20 @@
 
       <div class="sidebar-item divider">
         <label>API Key</label>
-        <div style="background: #fdfdfd; padding: 10px; border: 1px solid #eee; border-radius: 4px; word-break: break-all; font-family: monospace; font-size: 0.9rem;">
-          {{ user.api_key }}
+        <div 
+          @click="copyApiKey" 
+          style="background: #fdfdfd; padding: 10px; border: 1px solid #eee; border-radius: 4px; cursor: pointer; transition: background 0.2s;"
+          title="Fes clic per copiar al portapapers"
+          onmouseover="this.style.backgroundColor='#f0fdfa'"
+          onmouseout="this.style.backgroundColor='#fdfdfd'"
+        >
+          <div style="font-family: monospace; font-size: 0.95rem; color: #33475b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            {{ user.api_key }}
+          </div>
+          
+          <div style="font-size: 0.75rem; margin-top: 6px; font-weight: bold;" :style="{ color: copied ? '#008d8d' : '#999' }">
+            {{ copied ? '✓ Copiada al portapapers!' : 'Fes clic a sobre per copiar' }}
+          </div>
         </div>
       </div>
       
@@ -54,7 +68,6 @@
 
         <div style="padding: 30px;">
           <div v-if="activeTab === 'assigned'" class="tab-panel">
-            
             <div v-if="assignedIssues && assignedIssues.length > 0">
               <table class="profile-table">
                 <thead>
@@ -94,15 +107,12 @@
                 </tbody>
               </table>
             </div>
-            
             <div v-else style="padding: 60px; text-align: center; color: #8a9ab0;">
               No tens cap issue assignada actualment.
             </div>
-
           </div>
           
           <div v-if="activeTab === 'watched'" class="tab-panel">
-            
             <div v-if="watchedIssues && watchedIssues.length > 0">
               <table class="profile-table">
                 <thead>
@@ -142,16 +152,46 @@
                 </tbody>
               </table>
             </div>
-            
             <div v-else style="padding: 60px; text-align: center; color: #8a9ab0;">
-              No tens cap issue assignada actualment.
+              No estàs observant cap issue actualment.
             </div>
-
           </div>
 
           <div v-if="activeTab === 'comments'" class="tab-panel">
-            <h3 style="color: #008d8d;">[ Tasca #155 ] El teu historial de comentaris...</h3>
+            <div v-if="sortedComments && sortedComments.length > 0">
+              <div 
+                v-for="comment in sortedComments" 
+                :key="comment.id" 
+                style="padding: 20px 0; border-bottom: 1px solid #eee;"
+              >
+                <div style="margin-bottom: 12px; display: flex; align-items: baseline; gap: 15px;">
+                  <router-link 
+                    :to="'/issues/' + comment.issue_id" 
+                    style="color: #008d8d; font-weight: bold; font-size: 1.1rem; text-decoration: none;"
+                  >
+                    #{{ comment.issue_id }} {{ comment.issue_subject || 'Títol de la incidència' }}
+                  </router-link>
+                  <span style="color: #999; font-size: 0.85rem;">
+                    {{ formatDateTime(comment.created_at) }}
+                  </span>
+                </div>
+                
+                <p class="description-text" style="margin: 0 0 15px 0; font-size: 0.95rem;">
+                  {{ comment.content }}
+                </p>
+                
+                <div style="font-size: 0.85rem;">
+                  <a href="#" style="color: #008aa8; font-weight: 600; text-decoration: none; margin-right: 15px;">Editar</a>
+                  <a href="#" style="color: #eb5757; font-weight: 600; text-decoration: none;">Esborrar</a>
+                </div>
+              </div>
+            </div>
+            
+            <div v-else style="padding: 60px; text-align: center; color: #8a9ab0;">
+              No has publicat cap comentari actualment.
+            </div>
           </div>
+
         </div>
       </div>
     </main>
@@ -164,95 +204,96 @@
 </template>
 
 <script setup>
+import { ref, onMounted, watch, computed } from 'vue'
+import api from '../services/api' 
 
-import { ref, onMounted, watch } from 'vue'
-
-const user = ref(null)               // Dades de l'usuari
-const activeTab = ref('assigned')    // Controla quina pestaña està visible
+const user = ref(null)
+const activeTab = ref('assigned')
 const assignedIssues = ref([])
 const watchedIssues = ref([])
+const comments = ref([])
 
-const formatDate = (dateString) => { // Format de data: "DD MMM YYYY" (ejemplo: "15 Mar 2024")
+const copied = ref(false)
+
+const sortedComments = computed(() => {
+  return [...comments.value].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+})
+
+const formatDateTime = (dateString) => {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  
+  const datePart = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+  const timePart = date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  
+  return `${datePart} ${timePart}`
+}
+
+const formatDate = (dateString) => {
+  if (!dateString) return ''
   const options = { day: '2-digit', month: 'short', year: 'numeric' }
   return new Date(dateString).toLocaleDateString('en-GB', options)
 }
 
-// Funció per demanar les dades del perfil de l'usuari (simulada amb dades hardcoded)
+const copyApiKey = async () => {
+  try {
+    await navigator.clipboard.writeText(user.value.api_key)
+    copied.value = true
+    setTimeout(() => {
+      copied.value = false
+    }, 2000)
+  } catch (err) {
+    console.error('Error al copiar: ', err)
+  }
+}
+
 const fetchProfile = async () => {
   try {
-    // Intenta recuperar la API Key desde el almacenamiento local del navegador, o usa un token simulado por defecto
-    const currentKey = localStorage.getItem('active_api_key') || 'token_simulat_12345'
+    const userId = localStorage.getItem('active_user_id') || 3
+    const currentApiKey = localStorage.getItem('active_api_key')
     
-    //TODO: Esborrar tots aquests mocks, en principi ja està connectat amb la api
-    // Dades hardcodejades de moment
-    user.value = {
-      name: "alexmediavilla",
-      full_name: "Alex Michel Mediavilla",
-      avatar_url: null,
-      bio: "Estudiant de la FIB. Desenvolupador Full-Stack en procés.",
-      api_key: currentKey,
-      open_assigned_count: 2,
-      watched_issues_count: 5,
-      comments_count: 12
-    }
-    // Mock de dades per a la recuperació d'issues assignades 
-    assignedIssues.value = [
-      {
-        id: 1,
-        subject: "Issue 1",
-        issue_type: { name: "Bug", color: "#ff4d4d" },
-        severity: { name: "High", color: "#ff9900" },
-        priority: { name: "High", color: "#ff6600" },
-        status: { name: "In Progress", color: "#1890ff" },
-        updated_at: "2024-03-15T10:00:00Z"
-      },
-      {
-        id: 2,
-        subject: "Issue 2",
-        issue_type: { name: "Feature", color: "#52c41a" },
-        severity: { name: "Medium", color: "#faad14" },
-        priority: { name: "Medium", color: "#f5222d" },
-        status: { name: "Open", color: "#e1f5fe" },
-        updated_at: "2024-03-14T15:30:00Z"
-      }
-    ]
-    // Mock de dades per a la recuperació d'issues vigilades
-    watchedIssues.value = [
-      {
-        id: 3,
-        subject: "Issue 3",
-        issue_type: { name: "Bug", color: "#ff4d4d" },
-        severity: { name: "High", color: "#ff9900" },
-        priority: { name: "High", color: "#ff6600" },
-        status: { name: "In Progress", color: "#1890ff" },
-        updated_at: "2024-03-13T09:15:00Z"
-      },
-      {
-        id: 4,
-        subject: "Issue 4",
-        issue_type: { name: "Feature", color: "#52c41a" },
-        severity: { name: "Medium", color: "#faad14" },
-        priority: { name: "Medium", color: "#f5222d" },
-        status: { name: "Open", color: "#e1f5fe" },
-        updated_at: "2024-03-12T11:45:00Z"
-      }
-    ]
+    // Peticiones en paralelo incluyendo el nuevo endpoint de comentarios
+    const [userResponse, assignedResponse, watchedResponse, commentsResponse] = await Promise.all([
+      api.get(`/users/${userId}`),
+      api.get(`/users/${userId}/assigned_issues`),
+      api.get(`/users/${userId}/watched_issues`),
+      api.get(`/users/${userId}/comments`) // <-- Endpoint según api.yaml
+    ])
+    
+    user.value = userResponse.data
+    user.value.api_key = currentApiKey
+    
+    assignedIssues.value = assignedResponse.data || []
+    watchedIssues.value = watchedResponse.data || []
+    comments.value = commentsResponse.data || [] // <-- Guardamos la respuesta
+    
+    // Calculamos los contadores dinámicamente con la información en tiempo real
+    user.value.open_assigned_count = assignedIssues.value.length
+    user.value.watched_issues_count = watchedIssues.value.length
+    user.value.comments_count = comments.value.length // <-- Seteamos el contador
+
   } catch (error) {
-    console.error('Error carregant el perfil:', error)
+    console.error('Error carregant el perfil o les seves llistes:', error)
+    user.value = {
+      name: "Error de conexió",
+      full_name: "Backend no disponible",
+      bio: "Comprova que el teu Rails està encès i que el CORS et permet l'accés."
+    }
   }
 }
 
 onMounted(() => {
-  // Comprueba si l'usuari tenia una pestanya activa guardada anteriorment
   const savedTab = localStorage.getItem('activeProfileTab')
-  if (savedTab) activeTab.value = savedTab // Si existeix, restaura la pestaña
+  if (savedTab) activeTab.value = savedTab
   
   fetchProfile()
+  
+  // Ahora reaccionará instantáneamente cuando cambies de perfil en la Navbar
+  window.dispatchEvent(new Event('storage'))
+  window.addEventListener('storage', fetchProfile)
 })
 
-// Monitoritza la variable 'activeTab' en tiempo real
 watch(activeTab, (newTab) => {
-  // Guarada la pestanya activa actual localment
   localStorage.setItem('activeProfileTab', newTab)
 })
 </script>
