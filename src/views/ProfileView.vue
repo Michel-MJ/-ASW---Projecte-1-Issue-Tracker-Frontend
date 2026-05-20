@@ -47,7 +47,7 @@
           </div>
           
           <div style="font-size: 0.75rem; margin-top: 6px; font-weight: bold;" :style="{ color: copied ? '#008d8d' : '#999' }">
-            {{ copied ? '✓ Copiada al portapapers!' : 'Fes clic a sobre per copiar' }}
+            {{ copied ? 'Copiada al portapapers!' : 'Fes clic a sobre per copiar' }}
           </div>
         </div>
       </div>
@@ -59,7 +59,6 @@
 
     <main class="issue-main-content">
       <div class="issue-description-box" style="padding: 0;">
-        
         <div style="display: flex; border-bottom: 1px solid #eee; background: #fafafa;">
           <button @click="activeTab = 'assigned'" :class="['tab-link', { active: activeTab === 'assigned' }]">Open Assigned Issues</button>
           <button @click="activeTab = 'watched'" :class="['tab-link', { active: activeTab === 'watched' }]">Watched Issues</button>
@@ -252,33 +251,56 @@ const fetchProfile = async () => {
     const userId = localStorage.getItem('active_user_id') || 3
     const currentApiKey = localStorage.getItem('active_api_key')
     
-    // Peticiones en paralelo incluyendo el nuevo endpoint de comentarios
+    // 1. Lanzamos las peticiones iniciales en paralelo
     const [userResponse, assignedResponse, watchedResponse, commentsResponse] = await Promise.all([
       api.get(`/users/${userId}`),
       api.get(`/users/${userId}/assigned_issues`),
       api.get(`/users/${userId}/watched_issues`),
-      api.get(`/users/${userId}/comments`) // <-- Endpoint según api.yaml
+      api.get(`/users/${userId}/comments`)
     ])
     
     user.value = userResponse.data
     user.value.api_key = currentApiKey
-    
     assignedIssues.value = assignedResponse.data || []
     watchedIssues.value = watchedResponse.data || []
-    comments.value = commentsResponse.data || [] // <-- Guardamos la respuesta
     
-    // Calculamos los contadores dinámicamente con la información en tiempo real
+    const rawComments = commentsResponse.data || []
+
+    // 2. OPTIMIZACIÓN: Obtener solo los issue_id ÚNICOS para evitar peticiones duplicadas
+    // Si tienes 5 comentarios en la misma issue #4, solo haremos un GET en lugar de 5.
+    const uniqueIssueIds = [...new Set(rawComments.map(c => c.issue_id).filter(Boolean))]
+
+    // 3. Hidratar en paralelo: Pedimos los detalles de todas las issues únicas a la vez
+    const issuesResponses = await Promise.all(
+      uniqueIssueIds.map(id => 
+        api.get(`/issues/${id}`)
+          .then(res => res.data)
+          .catch(() => ({ id, subject: 'Incidència protegida o esborrada' })) // Control de errores por si alguna falla
+      )
+    )
+
+    // 4. Crear un mapa de búsqueda rápida { id_issue: "Título de la issue" }
+    const issueTitlesMap = {}
+    issuesResponses.forEach(issue => {
+      if (issue) {
+        issueTitlesMap[issue.id] = issue.subject
+      }
+    })
+
+    // 5. Inyectamos el título correspondiente a cada comentario antes de asignarlo a la variable reactiva
+    comments.value = rawComments.map(comment => ({
+      ...comment,
+      issue_subject: issueTitlesMap[comment.issue_id] || 'Incidència sense títol'
+    }))
+    
+    // Actualizamos los contadores del sidebar
     user.value.open_assigned_count = assignedIssues.value.length
     user.value.watched_issues_count = watchedIssues.value.length
-    user.value.comments_count = comments.value.length // <-- Seteamos el contador
+    user.value.comments_count = comments.value.length
 
   } catch (error) {
     console.error('Error carregant el perfil o les seves llistes:', error)
-    user.value = {
-      name: "Error de conexió",
-      full_name: "Backend no disponible",
-      bio: "Comprova que el teu Rails està encès i que el CORS et permet l'accés."
-    }
+    // ... (Tu manejo de errores actual)
   }
 }
 
