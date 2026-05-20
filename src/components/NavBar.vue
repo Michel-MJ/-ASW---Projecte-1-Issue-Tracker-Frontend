@@ -12,7 +12,7 @@
       <div class="user-selector">
         <label for="user-select">Connectat com:</label>
         <select id="user-select" v-model="selectedUserId" @change="changeUser">
-          <option v-for="user in fakeUsers" :key="user.id" :value="user.id">
+          <option v-for="user in usersSelector" :key="user.id" :value="user.id">
             {{ user.name }}
           </option>
         </select>
@@ -26,8 +26,8 @@ import { ref, onMounted } from 'vue'
 
 // Les nostres API Keys reals de Rails aniran aquí, de moment les deixo harcodejades
 // És la llista d'usuaris
-const fakeUsers = [
-  { id: 1, name: "Usuari 1", apiKey: "token_usuari_1" },
+const usersSelector = [
+  { id: 1, name: "MicheelMJ", apiKey: "3691c3dbe69d9da1f5452be45572be11" },
   { id: 2, name: "Usuari 2", apiKey: "token_usuari_2" },
   { id: 3, name: "Usuari 3", apiKey: "token_usuari_3" }
 ]
@@ -36,10 +36,11 @@ const selectedUserId = ref(1) // Per defecte l'usuari 1
 
 // Funció que s'executa quan canviem l'usuari al dropdown
 const changeUser = () => {
-  const user = fakeUsers.find(u => u.id === selectedUserId.value)
+  const user = usersSelector.find(u => u.id === selectedUserId.value)
   if (user) {
     // Guardem la API Key al localStorage perquè estigui disponible globalment
     localStorage.setItem('active_api_key', user.apiKey)
+    localStorage.setItem('active_user_id', user.id)
     console.log("Usuari canviat a:", user.name, "API Key desada.")
     // Opcional: Podríem fer un window.location.reload() aquí si volem forçar un refresc brusc de la vista
   }

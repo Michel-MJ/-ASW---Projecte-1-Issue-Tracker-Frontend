@@ -164,96 +164,52 @@
 </template>
 
 <script setup>
-
 import { ref, onMounted, watch } from 'vue'
+import api from '../services/api' // El teu servei d'API configurat amb l'interceptor de la API Key
 
-const user = ref(null)               // Dades de l'usuari
-const activeTab = ref('assigned')    // Controla quina pestaña està visible
+const user = ref(null)
+const activeTab = ref('assigned')
 const assignedIssues = ref([])
 const watchedIssues = ref([])
 
-const formatDate = (dateString) => { // Format de data: "DD MMM YYYY" (ejemplo: "15 Mar 2024")
-  const options = { day: '2-digit', month: 'short', year: 'numeric' }
-  return new Date(dateString).toLocaleDateString('en-GB', options)
-}
-
-// Funció per demanar les dades del perfil de l'usuari (simulada amb dades hardcoded)
 const fetchProfile = async () => {
   try {
-    // Intenta recuperar la API Key desde el almacenamiento local del navegador, o usa un token simulado por defecto
-    const currentKey = localStorage.getItem('active_api_key') || 'token_simulat_12345'
+    // 1. Leemos el ID del usuario seleccionado desde el localStorage
+    const userId = localStorage.getItem('active_user_id') || 2
     
-    //TODO: Esborrar tots aquests mocks, en principi ja està connectat amb la api
-    // Dades hardcodejades de moment
-    user.value = {
-      name: "alexmediavilla",
-      full_name: "Alex Michel Mediavilla",
-      avatar_url: null,
-      bio: "Estudiant de la FIB. Desenvolupador Full-Stack en procés.",
-      api_key: currentKey,
-      open_assigned_count: 2,
-      watched_issues_count: 5,
-      comments_count: 12
-    }
-    // Mock de dades per a la recuperació d'issues assignades 
-    assignedIssues.value = [
-      {
-        id: 1,
-        subject: "Issue 1",
-        issue_type: { name: "Bug", color: "#ff4d4d" },
-        severity: { name: "High", color: "#ff9900" },
-        priority: { name: "High", color: "#ff6600" },
-        status: { name: "In Progress", color: "#1890ff" },
-        updated_at: "2024-03-15T10:00:00Z"
-      },
-      {
-        id: 2,
-        subject: "Issue 2",
-        issue_type: { name: "Feature", color: "#52c41a" },
-        severity: { name: "Medium", color: "#faad14" },
-        priority: { name: "Medium", color: "#f5222d" },
-        status: { name: "Open", color: "#e1f5fe" },
-        updated_at: "2024-03-14T15:30:00Z"
-      }
-    ]
-    // Mock de dades per a la recuperació d'issues vigilades
-    watchedIssues.value = [
-      {
-        id: 3,
-        subject: "Issue 3",
-        issue_type: { name: "Bug", color: "#ff4d4d" },
-        severity: { name: "High", color: "#ff9900" },
-        priority: { name: "High", color: "#ff6600" },
-        status: { name: "In Progress", color: "#1890ff" },
-        updated_at: "2024-03-13T09:15:00Z"
-      },
-      {
-        id: 4,
-        subject: "Issue 4",
-        issue_type: { name: "Feature", color: "#52c41a" },
-        severity: { name: "Medium", color: "#faad14" },
-        priority: { name: "Medium", color: "#f5222d" },
-        status: { name: "Open", color: "#e1f5fe" },
-        updated_at: "2024-03-12T11:45:00Z"
-      }
-    ]
+    // 2. Hacemos la llamada real a tu endpoint de Rails (ej: /api/users/1)
+    // El interceptor de api.js le inyectará automáticamente la X-API-KEY
+    const response = await api.get(`/users/${userId}`)
+    
+    // 3. Asignamos los datos devueltos por Rails a nuestra variable reactiva
+    // OJO: Si tu controlador devuelve el usuario dentro de un objeto (ej: { user: {...} }), 
+    // deberás poner response.data.user
+    user.value = response.data
+
+    // 4. Aprovechamos para rellenar las pestañas con las relaciones que Rails ya envía
+    assignedIssues.value = response.data.assigned_issues || []
+    watchedIssues.value = response.data.watched_issues || []
+
   } catch (error) {
-    console.error('Error carregant el perfil:', error)
+    console.error('Error carregant el perfil des de l API:', error)
+    // Anti-frustración: Si falla la API, dejamos un objeto vacío para que al menos 
+    // no se quede la pantalla en blanco de "Carregant..." durante el desarrollo
+    user.value = {
+      name: "Error de conexió",
+      full_name: "Backend no disponible",
+      bio: "Comprova que el teu Rails està encès i el CORS configurat."
+    }
   }
 }
 
+// Escuchamos si el usuario cambia el selector de la Navbar para recargar los datos
 onMounted(() => {
-  // Comprueba si l'usuari tenia una pestanya activa guardada anteriorment
   const savedTab = localStorage.getItem('activeProfileTab')
-  if (savedTab) activeTab.value = savedTab // Si existeix, restaura la pestaña
+  if (savedTab) activeTab.value = savedTab
   
   fetchProfile()
-})
-
-// Monitoritza la variable 'activeTab' en tiempo real
-watch(activeTab, (newTab) => {
-  // Guarada la pestanya activa actual localment
-  localStorage.setItem('activeProfileTab', newTab)
+  
+  window.addEventListener('storage', fetchProfile)
 })
 </script>
 
