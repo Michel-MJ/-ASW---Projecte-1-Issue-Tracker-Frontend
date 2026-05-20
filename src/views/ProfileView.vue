@@ -3,7 +3,6 @@
     
     <aside class="issue-sidebar">
       <div style="text-align: center; margin-bottom: 20px;">
-        
         <img v-if="user.avatar_url" :src="user.avatar_url" alt="Avatar" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; margin: 0 auto 15px auto; display: block; border: 2px solid #eee;" />
         
         <div v-else class="avatar" style="width: 120px; height: 120px; font-size: 50px; margin: 0 auto; margin-bottom: 15px;">
@@ -158,8 +157,40 @@
           </div>
 
           <div v-if="activeTab === 'comments'" class="tab-panel">
-            <h3 style="color: #008d8d;">[ Tasca #155 ] El teu historial de comentaris anirà aquí...</h3>
+            <div v-if="sortedComments && sortedComments.length > 0">
+              <div 
+                v-for="comment in sortedComments" 
+                :key="comment.id" 
+                style="padding: 20px 0; border-bottom: 1px solid #eee;"
+              >
+                <div style="margin-bottom: 12px; display: flex; align-items: baseline; gap: 15px;">
+                  <router-link 
+                    :to="'/issues/' + comment.issue_id" 
+                    style="color: #008d8d; font-weight: bold; font-size: 1.1rem; text-decoration: none;"
+                  >
+                    #{{ comment.issue_id }} {{ comment.issue_subject || 'Títol de la incidència' }}
+                  </router-link>
+                  <span style="color: #999; font-size: 0.85rem;">
+                    {{ formatDateTime(comment.created_at) }}
+                  </span>
+                </div>
+                
+                <p class="description-text" style="margin: 0 0 15px 0; font-size: 0.95rem;">
+                  {{ comment.content }}
+                </p>
+                
+                <div style="font-size: 0.85rem;">
+                  <a href="#" style="color: #008aa8; font-weight: 600; text-decoration: none; margin-right: 15px;">Editar</a>
+                  <a href="#" style="color: #eb5757; font-weight: 600; text-decoration: none;">Esborrar</a>
+                </div>
+              </div>
+            </div>
+            
+            <div v-else style="padding: 60px; text-align: center; color: #8a9ab0;">
+              No has publicat cap comentari actualment.
+            </div>
           </div>
+
         </div>
       </div>
     </main>
@@ -172,17 +203,33 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import api from '../services/api' 
 
 const user = ref(null)
 const activeTab = ref('assigned')
 const assignedIssues = ref([])
 const watchedIssues = ref([])
+const comments = ref([])
 
 const copied = ref(false)
 
+const sortedComments = computed(() => {
+  return [...comments.value].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+})
+
+const formatDateTime = (dateString) => {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  
+  const datePart = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+  const timePart = date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  
+  return `${datePart} ${timePart}`
+}
+
 const formatDate = (dateString) => {
+  if (!dateString) return ''
   const options = { day: '2-digit', month: 'short', year: 'numeric' }
   return new Date(dateString).toLocaleDateString('en-GB', options)
 }
@@ -191,7 +238,6 @@ const copyApiKey = async () => {
   try {
     await navigator.clipboard.writeText(user.value.api_key)
     copied.value = true
-    
     setTimeout(() => {
       copied.value = false
     }, 2000)
@@ -202,27 +248,58 @@ const copyApiKey = async () => {
 
 const fetchProfile = async () => {
   try {
-    const userId = localStorage.getItem('active_user_id') || 1
+    const userId = localStorage.getItem('active_user_id') || 3
     const currentApiKey = localStorage.getItem('active_api_key')
     
-    const [userResponse, assignedResponse, watchedResponse] = await Promise.all([
+    // Peticions api
+    const [userResponse, assignedResponse, watchedResponse, commentsResponse] = await Promise.all([
       api.get(`/users/${userId}`),
       api.get(`/users/${userId}/assigned_issues`),
-      api.get(`/users/${userId}/watched_issues`)
+      api.get(`/users/${userId}/watched_issues`),
+      api.get(`/users/${userId}/comments`)
     ])
     
     user.value = userResponse.data
     user.value.api_key = currentApiKey
-    
     assignedIssues.value = assignedResponse.data || []
     watchedIssues.value = watchedResponse.data || []
     
+    const rawComments = commentsResponse.data || []
+
+    // Obtenim IDs de les issues dels comentaris
+    const uniqueIssueIds = [...new Set(rawComments.map(c => c.issue_id).filter(Boolean))]
+
+    const issuesResponses = await Promise.all(
+      uniqueIssueIds.map(id => 
+        api.get(`/issues/${id}`)
+          .then(res => res.data)
+          .catch(() => ({ id, subject: 'Incidència protegida o esborrada' }))
+      )
+    )
+
+    // Assignem titol de la issue a un mapa per accés ràpid
+    const issueTitlesMap = {}
+    issuesResponses.forEach(issue => {
+      if (issue) {
+        issueTitlesMap[issue.id] = issue.subject
+      }
+    })
+
+    // Assignem el títol per a cada comentari
+    comments.value = rawComments.map(comment => ({
+      ...comment,
+      issue_subject: issueTitlesMap[comment.issue_id] || 'Incidència sense títol'
+    }))
+    
+    // Comptadors
     user.value.open_assigned_count = assignedIssues.value.length
     user.value.watched_issues_count = watchedIssues.value.length
+    user.value.comments_count = comments.value.length
 
   } catch (error) {
     console.error('Error carregant el perfil o les seves llistes:', error)
-    alert("No s'ha pogut carregar el perfil de l'usuari.")}
+    alert('Error carregant el perfil o les seves llistes.')
+  }
 }
 
 onMounted(() => {
@@ -231,6 +308,7 @@ onMounted(() => {
   
   fetchProfile()
   
+  window.dispatchEvent(new Event('storage'))
   window.addEventListener('storage', fetchProfile)
 })
 
