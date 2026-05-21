@@ -6,6 +6,13 @@
       Carregant dades...
     </div>
 
+    <div v-else-if="unauthorized" style="padding: 30px 20px; border: 1px solid #fde8e8; background: #fff5f5; border-radius: 6px; text-align: center;">
+      <div style="font-size: 2rem; margin-bottom: 12px;">🚫</div>
+      <p style="color: #c0392b; font-weight: 600; font-size: 1rem; margin: 0 0 8px 0;">No tens permís per editar aquest perfil.</p>
+      <p style="color: #888; font-size: 0.9rem; margin: 0 0 20px 0;">Només pots editar el teu propi perfil.</p>
+      <router-link to="/profile" class="btn-icon" style="text-decoration: none;">Torna al teu perfil</router-link>
+    </div>
+
     <form v-else @submit.prevent="saveProfile" class="form-layout" style="display: block;">
       
       <div style="margin-bottom: 25px; display: flex; align-items: center; gap: 20px;">
@@ -41,12 +48,14 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import api from '../services/api'
 
 const router = useRouter()
+const route = useRoute()
 const loading = ref(true)
 const saving = ref(false)
+const unauthorized = ref(false)
 
 const form = ref({
   bio: '',
@@ -58,9 +67,17 @@ const previewUrl = ref(null)
 
 const fetchCurrentData = async () => {
   try {
-    const userId = localStorage.getItem('active_user_id') || 1
-    
-    const response = await api.get(`/users/${userId}`)
+    const myId = String(localStorage.getItem('active_user_id') || '')
+    const targetId = String(route.params.userId || route.params.id || myId)
+
+    // Guard: només el propi usuari pot editar el seu perfil
+    if (myId && targetId !== myId) {
+      unauthorized.value = true
+      loading.value = false
+      return
+    }
+
+    const response = await api.get(`/users/${myId}`)
     
     form.value.bio = response.data.bio || ''
     form.value.avatar_url = response.data.avatar_url || ''

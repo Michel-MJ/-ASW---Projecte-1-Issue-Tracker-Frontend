@@ -33,7 +33,7 @@
         <p class="description-text">{{ user.bio || "Aquest usuari no té biografia." }}</p>
       </div>
 
-      <div class="sidebar-item divider">
+      <div v-if="isOwnProfile" class="sidebar-item divider">
         <label>API Key</label>
         <div 
           @click="copyApiKey" 
@@ -52,7 +52,7 @@
         </div>
       </div>
       
-      <div class="show-actions divider" style="justify-content: center;">
+      <div v-if="isOwnProfile" class="show-actions divider" style="justify-content: center;">
         <router-link to="/profile/edit" class="btn-edit">EDIT PROFILE</router-link>
       </div>
     </aside>
@@ -204,7 +204,7 @@
 
 <script setup>
 import { ref, onMounted, watch, computed } from 'vue'
-import { useRoute } from 'vue-router' // Aseguramos la importación de la ruta
+import { useRoute } from 'vue-router'
 import api from '../services/api' 
 
 const props = defineProps({
@@ -214,9 +214,8 @@ const props = defineProps({
   }
 })
 
-const route = useRoute() // Inicializamos el acceso a la URL actual
+const route = useRoute()
 
-// Estados reactivos primarios
 const user = ref(null)
 const activeTab = ref('assigned')
 const assignedIssues = ref([])
@@ -224,12 +223,16 @@ const watchedIssues = ref([])
 const comments = ref([])
 const copied = ref(false)
 
-// Cómputo para ordenar comentarios
+const isOwnProfile = computed(() => {
+  const myId = String(localStorage.getItem('active_user_id') || '')
+  const viewedId = String(props.userId || route.params.userId || route.params.id || myId)
+  return myId !== '' && myId === viewedId
+})
+
 const sortedComments = computed(() => {
   return [...comments.value].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
 })
 
-// Formateadores de fecha y tiempo
 const formatDateTime = (dateString) => {
   if (!dateString) return ''
   const date = new Date(dateString)
@@ -244,7 +247,6 @@ const formatDate = (dateString) => {
   return new Date(dateString).toLocaleDateString('en-GB', options)
 }
 
-// Lógica para copiar la API Key
 const copyApiKey = async () => {
   if (!user.value?.api_key) return
   try {
@@ -256,22 +258,18 @@ const copyApiKey = async () => {
   }
 }
 
-// Carga de los datos del perfil
 const fetchProfile = async () => {
   try {
-    // RESOLUCIÓN DE ID: Miramos la Prop, los parámetros habituales de la URL, o el tuyo propio
     const userId = props.userId || route.params.userId || route.params.id || localStorage.getItem('active_user_id') || 3
     const currentApiKey = localStorage.getItem('active_api_key')
     
     console.log("🔍 Intentando cargar el perfil para el ID de usuario:", userId)
     
-    // Si por una mala resolución el ID nos queda vacío, forzamos un fallback para que no rompa la API
     if (!userId) {
-      
+      console.error("ID d'usuari invàlid")
+      return
     }
 
-    // Peticiones concurrentes a la API envolviendo de forma segura las respuestas secundarias
-    // para que si el usuario no tiene comentarios o tareas, la app NO se quede colgada.
     const [userResponse, assignedResponse, watchedResponse, commentsResponse] = await Promise.all([
       api.get(`/users/${userId}`),
       api.get(`/users/${userId}/assigned_issues`).catch(() => ({ data: [] })),
@@ -281,16 +279,17 @@ const fetchProfile = async () => {
     
     user.value = userResponse.data
     
-    // OFUSCACIÓN DE SEGURIDAD: Muestra la API Key real solo si estás viendo tu propio perfil
+    // Assignem l'API Key real només si és el propi perfil
     const myId = localStorage.getItem('active_user_id')
-    user.value.api_key = (userId == myId) ? currentApiKey : '••••••••••••••••'
+    if (String(userId) === String(myId)) {
+      user.value.api_key = localStorage.getItem('active_api_key')
+    }
     
     assignedIssues.value = assignedResponse.data || []
     watchedIssues.value = watchedResponse.data || []
     
     const rawComments = commentsResponse.data || []
 
-    // Obtener y mapear los asuntos de las incidencias vinculadas a los comentarios
     const uniqueIssueIds = [...new Set(rawComments.map(c => c.issue_id).filter(Boolean))]
 
     const issuesResponses = await Promise.all(
