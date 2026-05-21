@@ -23,6 +23,14 @@
             </select>
           </div>
 
+          <div class="status-dropdown" style="margin-top: 15px;">
+            <label class="label">Watchers (Observadors)</label>
+            <select v-model="issue.watchers" multiple class="select-tags-multi">
+              <option v-for="u in usersList" :key="u.id" :value="u.name">{{ u.name }}</option>
+            </select>
+            <small style="color: #666; font-size: 0.8rem;">Fes servir Ctrl (Windows) o Cmd (Mac) per seleccionar diversos usuaris.</small>
+          </div>
+
           <div class="field" style="margin-top: 20px;">
             <textarea v-model="issue.description" placeholder="Please add descriptive text..." class="input-description"></textarea>
           </div>
@@ -39,6 +47,7 @@
 
         <aside class="sidebar">
           <div class="status-dropdown">
+            <label class="label">Status</label>
             <select v-model="issue.status" class="select-status-main" required>
               <option :value="null">Select Status</option>
               <option v-for="s in statusesList" :key="s.id" :value="s.name">{{ s.name }}</option>
@@ -46,6 +55,7 @@
           </div>
 
           <div class="status-dropdown">
+            <label class="label">Assignat a</label>
             <select v-model="issue.assignee" class="select-assignee">
               <option :value="null">Assign to</option>
               <option v-for="u in usersList" :key="u.id" :value="u.name">{{ u.name }}</option>
@@ -75,11 +85,9 @@
             </select>
           </div>
 
-          <div class="action-icons">
-            <div class="calendar-wrapper btn-icon">
-              <span>🕒</span>
-              <input type="date" v-model="issue.due_date" class="input-fecha-overlay" />
-            </div>
+          <div class="meta-item" style="margin-top: 20px;">
+            <span class="label">Due Date (Data límit)</span>
+            <input type="date" v-model="issue.due_date" class="meta-select" style="padding: 5px; width: 100%; border: 1px solid #ccc; border-radius: 4px;" />
           </div>
         </aside>
       </div>
@@ -100,7 +108,6 @@ import '../assets/new_issue.css'
 const router = useRouter()
 const route = useRoute()
 
-// Mirem si hi ha un ID a la URL (ex: /issues/123/edit) per saber si estem editant
 const isEditing = computed(() => !!route.params.id)
 
 const issue = ref({ 
@@ -112,7 +119,8 @@ const issue = ref({
   status: null, 
   assignee: null, 
   due_date: '', 
-  tags: []
+  tags: [],
+  watchers: [] // NOU: Array per emmagatzemar els noms dels watchers escollits
 })
 
 const filesToUpload = ref([])
@@ -128,8 +136,6 @@ const isSubmitting = ref(false)
 
 onMounted(async () => {
   try {
-    // 1. Carreguem les dades dels desplegables en paral·lel
-    // Posem un .catch() als usuaris perquè si encara no existeix la ruta al backend, no trenqui la resta!
     const [t, s, p, st, u, tg] = await Promise.all([
       api.get('/issue_types'), 
       api.get('/severities'), 
@@ -146,11 +152,9 @@ onMounted(async () => {
     usersList.value = u.data; 
     tagsList.value = tg.data;
 
-    // 2. SI ESTEM EDITANT, carreguem la informació de la incidència actual
     if (isEditing.value) {
       const { data } = await api.get(`/issues/${route.params.id}`)
       
-      // Traduïm els objectes complexos a noms simples pel nostre v-model
       issue.value.subject = data.subject || ''
       issue.value.description = data.description || ''
       issue.value.status = data.status?.name || null
@@ -160,6 +164,8 @@ onMounted(async () => {
       issue.value.assignee = data.assignee?.name || null
       issue.value.due_date = data.due_date || ''
       issue.value.tags = data.tags?.map(tag => tag.name) || []
+      // NOU: Emplenem el camp amb els noms dels watchers actuals
+      issue.value.watchers = data.watchers?.map(w => w.name) || []
     }
 
   } catch (error) {
@@ -180,7 +186,6 @@ const submitIssue = async () => {
 
     if (isEditing.value) {
       // --- LÒGICA DE PATCH (EDICIÓ) ---
-      // L'API YAML demana estructura niada "issue: { status_id: ... }" i espera IDs per actualitzar
       const patchPayload = {
         issue: {
           subject: issue.value.subject,
@@ -191,14 +196,15 @@ const submitIssue = async () => {
           priority_id: prioritiesList.value.find(x => x.name === issue.value.priority)?.id,
           severity_id: severitiesList.value.find(x => x.name === issue.value.severity)?.id,
           assignee_id: usersList.value.find(x => x.name === issue.value.assignee)?.id || null,
-          tag_ids: issue.value.tags.map(tagName => tagsList.value.find(t => t.name === tagName)?.id).filter(id => id)
+          tag_ids: issue.value.tags.map(tagName => tagsList.value.find(t => t.name === tagName)?.id).filter(id => id),
+          // NOU: Enviem l'array d'IDs dels usuaris seleccionats com a observadors
+          watcher_ids: issue.value.watchers.map(wName => usersList.value.find(u => u.name === wName)?.id).filter(id => id)
         }
       }
       await api.patch(`/issues/${savedIssueId}`, patchPayload)
 
     } else {
       // --- LÒGICA DE POST (CREACIÓ) ---
-      // L'API YAML demana JSON pla amb els noms en format string
       const postPayload = {
         subject: issue.value.subject,
         description: issue.value.description,
@@ -212,9 +218,16 @@ const submitIssue = async () => {
       }
       const res = await api.post('/issues', postPayload)
       savedIssueId = res.data.id
+      
+      // NOU: Afegir watchers a la nova issue un per un (ja que el endpoint de crear issue no suporta llista de watchers directament)
+      if (issue.value.watchers && issue.value.watchers.length > 0) {
+        const watcherIds = issue.value.watchers.map(wName => usersList.value.find(u => u.name === wName)?.id).filter(id => id);
+        for (const wId of watcherIds) {
+          await api.post(`/issues/${savedIssueId}/watchers`, { watcher_id: wId }).catch(e => console.error("Error pujant watcher", e))
+        }
+      }
     }
 
-    // Gestionem els fitxers independentment de si estem creant o editant
     if (filesToUpload.value.length > 0) {
       for (const file of filesToUpload.value) {
         const fileData = new FormData()
@@ -225,7 +238,6 @@ const submitIssue = async () => {
       }
     }
 
-    // Redirigim a la vista de detall amb l'ID correcte
     router.push({ name: 'issue-detail', params: { id: savedIssueId } })
   } catch (err) {
     console.error(err)

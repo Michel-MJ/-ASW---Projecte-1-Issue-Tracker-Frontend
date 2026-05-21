@@ -63,6 +63,27 @@
             </button>
           </div>
         </div>
+
+        <div class="box activity-box" style="margin-top: 30px;">
+          <h3>Historial d'Activitat</h3>
+          
+          <ul v-if="issue.activities && issue.activities.length > 0" class="activity-list">
+            <li v-for="activity in issue.activities" :key="activity.id" class="activity-item">
+              <div class="activity-icon">⚡</div>
+              <div class="activity-content">
+                <span class="activity-action">{{ activity.action }}</span>
+                <span class="activity-meta">
+                  per <strong>{{ activity.user?.name || 'Sistema' }}</strong> 
+                  el {{ new Date(activity.created_at).toLocaleDateString() }} 
+                  a les {{ new Date(activity.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }}
+                </span>
+              </div>
+            </li>
+          </ul>
+          
+          <p v-else class="empty-state">Encara no hi ha activitat registrada.</p>
+        </div>
+
       </section>
 
       <aside class="sidebar-column">
@@ -74,7 +95,18 @@
             <li><strong>Prioritat:</strong> {{ issue.priority?.name || '-' }}</li>
             <li><strong>Severitat:</strong> {{ issue.severity?.name || '-' }}</li>
             <li><strong>Assignat a:</strong> {{ issue.assignee?.name || 'Ningú' }}</li>
+            <li><strong>Data Límit:</strong> {{ issue.due_date || 'Sense assignar' }}</li>
           </ul>
+        </div>
+
+        <div class="box meta-box">
+          <h3>Observadors (Watchers)</h3>
+          <ul v-if="issue.watchers && issue.watchers.length > 0">
+            <li v-for="watcher in issue.watchers" :key="watcher.id" style="padding: 5px 0;">
+               <span>👀 {{ watcher.name || watcher.email }}</span>
+            </li>
+          </ul>
+          <p v-else class="empty-state">No hi ha observadors.</p>
         </div>
 
         <div class="box attachments-box">
@@ -108,7 +140,6 @@ const loading = ref(true)
 const newComment = ref('')
 const isSubmittingComment = ref(false)
 
-// Estats per edició
 const editingId = ref(null)
 const editText = ref('')
 
@@ -123,7 +154,9 @@ const fetchIssueData = async () => {
   }
 }
 
-onMounted(() => { fetchIssueData() })
+onMounted(() => { 
+  fetchIssueData()
+})
 
 const deleteIssue = async () => {
   if (confirm("Estàs segur que vols eliminar aquesta incidència?")) {
@@ -136,11 +169,6 @@ const deleteIssue = async () => {
   }
 }
 
-// ------------------------------------------------------------------
-// GESTIÓ DE COMENTARIS (Connectat 100% amb el nou backend)
-// ------------------------------------------------------------------
-
-// POST: Crear Comentari
 const submitComment = async () => {
   if (!newComment.value.trim()) return
   isSubmittingComment.value = true
@@ -150,48 +178,41 @@ const submitComment = async () => {
       comment: { content: newComment.value } 
     })
     newComment.value = ''
-    await fetchIssueData() // Recarreguem per veure el nou comentari
+    await fetchIssueData()
   } catch (e) { 
-    // Mostrem l'error real que ens envia el Ruby (ex: User must exist, etc)
     alert(e.response?.data?.error || e.response?.data?.errors?.[0] || "Error al publicar el comentari") 
   } finally { 
     isSubmittingComment.value = false 
   }
 }
 
-// PREPARAR EDICIÓ
 const startEdit = (c) => { 
   editingId.value = c.id
   editText.value = c.content 
 }
 
-// PATCH: Guardar Edició
 const saveEdit = async (id) => {
   if (!editText.value.trim()) {
     alert("El comentari no pot estar buit")
     return
   }
-
   try {
     await api.patch(`/issues/${route.params.id}/comments/${id}`, { 
       comment: { content: editText.value } 
     })
     editingId.value = null
-    await fetchIssueData() // Recarreguem per veure els canvis
+    await fetchIssueData()
   } catch (e) { 
-    // Aquí saltarà el 403 Forbidden de Ruby si no ets l'autor
     alert(e.response?.data?.error || "Error al editar el comentari") 
   }
 }
 
-// DELETE: Esborrar Comentari
 const removeComment = async (id) => {
   if(confirm("Segur que vols esborrar aquest comentari?")) {
     try {
       await api.delete(`/issues/${route.params.id}/comments/${id}`)
-      await fetchIssueData() // Recarreguem la llista sense el comentari
+      await fetchIssueData()
     } catch (e) { 
-      // Aquí també saltarà el 403 si intentes esborrar el comentari d'un altre
       alert(e.response?.data?.error || "Error al esborrar el comentari") 
     }
   }
@@ -199,7 +220,6 @@ const removeComment = async (id) => {
 </script>
 
 <style scoped>
-/* Estils existents + estils per la edició */
 .issue-detail-container { max-width: 1100px; margin: 40px auto; font-family: sans-serif; color: #333; }
 .issue-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 20px; margin-bottom: 30px; }
 .actions { display: flex; gap: 10px; }
@@ -215,12 +235,54 @@ const removeComment = async (id) => {
 .add-comment-box { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; border-top: 1px dashed #ccc; padding-top: 20px; }
 .comment-input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
 .btn-comment { align-self: flex-end; background-color: #2ecc71; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-
-/* NOU: Estils botons acció comentari */
 .comment-actions { display: flex; gap: 8px; }
 .btn-icon { background: none; border: none; cursor: pointer; opacity: 0.5; font-size: 1rem; }
 .edit-area { margin-top: 10px; display: flex; flex-direction: column; gap: 5px; }
 .edit-buttons { display: flex; justify-content: flex-end; gap: 5px; }
 .btn-save { background: #3498db; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
 .btn-cancel { background: #ccc; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+ul { list-style-type: none; padding: 0; margin: 0; }
+li { padding-bottom: 5px; }
+
+/* ESTILS PER A L'HISTORIAL D'ACTIVITAT */
+.activity-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.activity-item {
+  display: flex;
+  gap: 15px;
+  align-items: flex-start;
+  padding: 15px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+.activity-item:last-child {
+  border-bottom: none;
+}
+.activity-icon {
+  background: #f1c40f;
+  color: white;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+.activity-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.activity-action {
+  font-size: 0.95rem;
+  color: #333;
+}
+.activity-meta {
+  font-size: 0.8rem;
+  color: #888;
+}
 </style>
