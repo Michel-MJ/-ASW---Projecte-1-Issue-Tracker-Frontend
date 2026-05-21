@@ -27,9 +27,10 @@ const router = createRouter({
       component: IssueDetail
     },
     {
-      path: '/profile',
+      path: '/profile/:userId?',
       name: 'profile',
-      component: ProfileView
+      component: ProfileView,
+      props: true
     },
     {
       path: '/profile/edit',

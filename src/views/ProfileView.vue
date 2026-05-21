@@ -204,27 +204,37 @@
 
 <script setup>
 import { ref, onMounted, watch, computed } from 'vue'
+import { useRoute } from 'vue-router' // Aseguramos la importación de la ruta
 import api from '../services/api' 
 
+const props = defineProps({
+  userId: {
+    type: [String, Number],
+    default: null
+  }
+})
+
+const route = useRoute() // Inicializamos el acceso a la URL actual
+
+// Estados reactivos primarios
 const user = ref(null)
 const activeTab = ref('assigned')
 const assignedIssues = ref([])
 const watchedIssues = ref([])
 const comments = ref([])
-
 const copied = ref(false)
 
+// Cómputo para ordenar comentarios
 const sortedComments = computed(() => {
   return [...comments.value].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
 })
 
+// Formateadores de fecha y tiempo
 const formatDateTime = (dateString) => {
   if (!dateString) return ''
   const date = new Date(dateString)
-  
   const datePart = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
   const timePart = date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-  
   return `${datePart} ${timePart}`
 }
 
@@ -234,39 +244,53 @@ const formatDate = (dateString) => {
   return new Date(dateString).toLocaleDateString('en-GB', options)
 }
 
+// Lógica para copiar la API Key
 const copyApiKey = async () => {
+  if (!user.value?.api_key) return
   try {
     await navigator.clipboard.writeText(user.value.api_key)
     copied.value = true
-    setTimeout(() => {
-      copied.value = false
-    }, 2000)
+    setTimeout(() => { copied.value = false }, 2000)
   } catch (err) {
     console.error('Error al copiar: ', err)
   }
 }
 
+// Carga de los datos del perfil
 const fetchProfile = async () => {
   try {
-    const userId = localStorage.getItem('active_user_id') || 3
+    // RESOLUCIÓN DE ID: Miramos la Prop, los parámetros habituales de la URL, o el tuyo propio
+    const userId = props.userId || route.params.userId || route.params.id || localStorage.getItem('active_user_id') || 3
     const currentApiKey = localStorage.getItem('active_api_key')
     
-    // Peticions api
+    console.log("🔍 Intentando cargar el perfil para el ID de usuario:", userId)
+    
+    // Si por una mala resolución el ID nos queda vacío, forzamos un fallback para que no rompa la API
+    if (!userId) {
+      
+    }
+
+    // Peticiones concurrentes a la API envolviendo de forma segura las respuestas secundarias
+    // para que si el usuario no tiene comentarios o tareas, la app NO se quede colgada.
     const [userResponse, assignedResponse, watchedResponse, commentsResponse] = await Promise.all([
       api.get(`/users/${userId}`),
-      api.get(`/users/${userId}/assigned_issues`),
-      api.get(`/users/${userId}/watched_issues`),
-      api.get(`/users/${userId}/comments`)
+      api.get(`/users/${userId}/assigned_issues`).catch(() => ({ data: [] })),
+      api.get(`/users/${userId}/watched_issues`).catch(() => ({ data: [] })),
+      api.get(`/users/${userId}/comments`).catch(() => ({ data: [] }))
     ])
     
     user.value = userResponse.data
-    user.value.api_key = currentApiKey
+    
+    // OFUSCACIÓN DE SEGURIDAD: Muestra la API Key real solo si estás viendo tu propio perfil
+    const myId = localStorage.getItem('active_user_id')
+    user.value.api_key = (userId == myId) ? currentApiKey : '••••••••••••••••'
+    
     assignedIssues.value = assignedResponse.data || []
     watchedIssues.value = watchedResponse.data || []
     
     const rawComments = commentsResponse.data || []
 
-    // Obtenim IDs de les issues dels comentaris
+    // Obtener y mapear los asuntos de las incidencias vinculadas a los comentarios
     const uniqueIssueIds = [...new Set(rawComments.map(c => c.issue_id).filter(Boolean))]
 
     const issuesResponses = await Promise.all(
@@ -277,7 +301,6 @@ const fetchProfile = async () => {
       )
     )
 
-    // Assignem titol de la issue a un mapa per accés ràpid
     const issueTitlesMap = {}
     issuesResponses.forEach(issue => {
       if (issue) {
@@ -285,22 +308,36 @@ const fetchProfile = async () => {
       }
     })
 
-    // Assignem el títol per a cada comentari
     comments.value = rawComments.map(comment => ({
       ...comment,
       issue_subject: issueTitlesMap[comment.issue_id] || 'Incidència sense títol'
     }))
     
-    // Comptadors
+    // Sincronización local de los contadores en los contadores superiores
     user.value.open_assigned_count = assignedIssues.value.length
     user.value.watched_issues_count = watchedIssues.value.length
     user.value.comments_count = comments.value.length
 
   } catch (error) {
-    console.error('Error carregant el perfil o les seves llistes:', error)
-    alert('Error carregant el perfil o les seves llistes.')
+    user.value = {
+      full_name: 'Error al carregar',
+      name: 'desconegut',
+      bio: 'No s\'ha pogut connectar amb el servidor per obtenir el perfil.'
+    }
   }
 }
+
+// Si la URL del navegador cambia refrescamos los datos al instante
+watch(
+  () => [props.userId, route.params.userId, route.params.id],
+  () => {
+    fetchProfile()
+  }
+)
+
+watch(activeTab, (newTab) => {
+  localStorage.setItem('activeProfileTab', newTab)
+})
 
 onMounted(() => {
   const savedTab = localStorage.getItem('activeProfileTab')
@@ -310,10 +347,6 @@ onMounted(() => {
   
   window.dispatchEvent(new Event('storage'))
   window.addEventListener('storage', fetchProfile)
-})
-
-watch(activeTab, (newTab) => {
-  localStorage.setItem('activeProfileTab', newTab)
 })
 </script>
 

@@ -15,7 +15,7 @@
           <input 
             v-model="searchQuery"
             type="text" 
-            placeholder="Filter / Sort / Search Issues..." 
+            placeholder="Search issues by name or description" 
             class="search-input"
             @input="debounceSearch"
           />
@@ -93,7 +93,7 @@
         </div>
 
         <div class="table-body">
-          <div v-if="loading" class="state-message">Cargando incidencias...</div>
+          <div v-if="loading" class="state-message">Carregant...</div>
           
           <template v-else-if="issues.length > 0">
             <div v-for="issue in issues" :key="issue.id" class="issue-row">
@@ -101,8 +101,8 @@
               <div class="col-type">
                 <span 
                   class="color-dot"
-                  :style="{ backgroundColor: getRelationAttr(issue.type_id, issueTypes, 'color', '#ccc') }"
-                  :title="getRelationAttr(issue.type_id, issueTypes, 'name', 'Unknown')"
+                  :style="{ backgroundColor: getRelationAttr(issue.issue_type_id, issueTypes, 'color', '#ccc') }"
+                  :title="getRelationAttr(issue.issue_type_id, issueTypes, 'name', 'Unknown')"
                 ></span>
               </div>
 
@@ -146,10 +146,16 @@
                 {{ formatDate(issue.due_date) }}
               </div>
 
-              <div class="col-assignee" :title="issue.assigned_to_name || 'Unassigned'">
-                <div v-if="issue.assigned_to_name" class="avatar">
-                  {{ issue.assigned_to_name.substring(0, 2) }}
-                </div>
+              <div class="col-assignee" :title="issue.assignee?.name || 'Unassigned'">
+                <router-link 
+                  v-if="issue.assignee?.name" 
+                  :to="'/profile/' + issue.assignee.id" 
+                  class="avatar-link"
+                >
+                  <div v-if="issue.assignee?.name" class="avatar clickable"">
+                    {{ issue.assignee?.name.charAt(0).toUpperCase() }}
+                  </div>
+                </router-link>
                 <div v-else class="avatar-empty">?</div>
               </div>
 
@@ -186,6 +192,13 @@
       </div>
     </div>
   </div>
+  <div v-if="showProfileModal" class="modal-overlay" @click.self="showProfileModal = false">
+      <div class="profile-modal-wrapper">
+        <button class="modal-close-trigger" @click="showProfileModal = false">×</button>
+        
+        <ProfileView :userId="selectedUserId" />
+      </div>
+    </div>
 </template>
 
 <script setup>
@@ -257,7 +270,7 @@ const fetchIssues = async () => {
   const params = {};
   if (activeFilters.types.length) params.type = activeFilters.types.join(',');
   if (activeFilters.statuses.length) params.status = activeFilters.statuses.join(',');
-  if (activeFilters.priorities.length) params.priorities = activeFilters.priorities.join(',');
+  if (activeFilters.priorities.length) params.priority = activeFilters.priorities.join(',');
   if (activeFilters.severities.length) params.severity = activeFilters.severities.join(',');
   
   if (searchQuery.value) params.q = searchQuery.value;
@@ -611,19 +624,6 @@ html, body {
 }
 
 /* Avatares */
-.avatar {
-  width: 30px;
-  height: 30px;
-  background: #008aa8;
-  color: #fff;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: bold;
-  text-transform: uppercase;
-}
 
 .avatar-empty {
   width: 30px;
