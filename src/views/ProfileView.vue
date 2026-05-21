@@ -3,7 +3,7 @@
     
     <aside class="issue-sidebar">
       <div style="text-align: center; margin-bottom: 20px;">
-        <img v-if="user.avatar_url" :src="user.avatar_url" alt="Avatar" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; margin: 0 auto 15px auto; display: block; border: 2px solid #eee;" />
+        <img v-if="user.avatar_url" :src="user.avatar_url" alt="" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; margin: 0 auto 15px auto; display: block; border: 2px solid #eee;" />
         
         <div v-else class="avatar" style="width: 120px; height: 120px; font-size: 50px; margin: 0 auto; margin-bottom: 15px;">
           {{ user.full_name ? user.full_name.charAt(0).toUpperCase() : user.name.charAt(0).toUpperCase() }}
@@ -33,7 +33,7 @@
         <p class="description-text">{{ user.bio || "Aquest usuari no té biografia." }}</p>
       </div>
 
-      <div class="sidebar-item divider">
+      <div v-if="isOwnProfile" class="sidebar-item divider">
         <label>API Key</label>
         <div 
           @click="copyApiKey" 
@@ -52,7 +52,7 @@
         </div>
       </div>
       
-      <div class="show-actions divider" style="justify-content: center;">
+      <div v-if="isOwnProfile" class="show-actions divider" style="justify-content: center;">
         <router-link to="/profile/edit" class="btn-edit">EDIT PROFILE</router-link>
       </div>
     </aside>
@@ -204,15 +204,30 @@
 
 <script setup>
 import { ref, onMounted, watch, computed } from 'vue'
+import { useRoute } from 'vue-router'
 import api from '../services/api' 
+
+const props = defineProps({
+  userId: {
+    type: [String, Number],
+    default: null
+  }
+})
+
+const route = useRoute()
 
 const user = ref(null)
 const activeTab = ref('assigned')
 const assignedIssues = ref([])
 const watchedIssues = ref([])
 const comments = ref([])
-
 const copied = ref(false)
+
+const isOwnProfile = computed(() => {
+  const myId = String(localStorage.getItem('active_user_id') || '')
+  const viewedId = String(props.userId || route.params.userId || route.params.id || myId)
+  return myId !== '' && myId === viewedId
+})
 
 const sortedComments = computed(() => {
   return [...comments.value].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
@@ -221,10 +236,8 @@ const sortedComments = computed(() => {
 const formatDateTime = (dateString) => {
   if (!dateString) return ''
   const date = new Date(dateString)
-  
   const datePart = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
   const timePart = date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-  
   return `${datePart} ${timePart}`
 }
 
@@ -235,12 +248,11 @@ const formatDate = (dateString) => {
 }
 
 const copyApiKey = async () => {
+  if (!user.value?.api_key) return
   try {
     await navigator.clipboard.writeText(user.value.api_key)
     copied.value = true
-    setTimeout(() => {
-      copied.value = false
-    }, 2000)
+    setTimeout(() => { copied.value = false }, 2000)
   } catch (err) {
     console.error('Error al copiar: ', err)
   }
@@ -248,25 +260,36 @@ const copyApiKey = async () => {
 
 const fetchProfile = async () => {
   try {
-    const userId = localStorage.getItem('active_user_id') || 3
+    const userId = props.userId || route.params.userId || route.params.id || localStorage.getItem('active_user_id') || 3
     const currentApiKey = localStorage.getItem('active_api_key')
     
-    // Peticions api
+    console.log("🔍 Intentando cargar el perfil para el ID de usuario:", userId)
+    
+    if (!userId) {
+      console.error("ID d'usuari invàlid")
+      return
+    }
+
     const [userResponse, assignedResponse, watchedResponse, commentsResponse] = await Promise.all([
       api.get(`/users/${userId}`),
-      api.get(`/users/${userId}/assigned_issues`),
-      api.get(`/users/${userId}/watched_issues`),
-      api.get(`/users/${userId}/comments`)
+      api.get(`/users/${userId}/assigned_issues`).catch(() => ({ data: [] })),
+      api.get(`/users/${userId}/watched_issues`).catch(() => ({ data: [] })),
+      api.get(`/users/${userId}/comments`).catch(() => ({ data: [] }))
     ])
     
     user.value = userResponse.data
-    user.value.api_key = currentApiKey
+    
+    // Assignem l'API Key real només si és el propi perfil
+    const myId = localStorage.getItem('active_user_id')
+    if (String(userId) === String(myId)) {
+      user.value.api_key = localStorage.getItem('active_api_key')
+    }
+    
     assignedIssues.value = assignedResponse.data || []
     watchedIssues.value = watchedResponse.data || []
     
     const rawComments = commentsResponse.data || []
 
-    // Obtenim IDs de les issues dels comentaris
     const uniqueIssueIds = [...new Set(rawComments.map(c => c.issue_id).filter(Boolean))]
 
     const issuesResponses = await Promise.all(
@@ -277,7 +300,6 @@ const fetchProfile = async () => {
       )
     )
 
-    // Assignem titol de la issue a un mapa per accés ràpid
     const issueTitlesMap = {}
     issuesResponses.forEach(issue => {
       if (issue) {
@@ -285,22 +307,36 @@ const fetchProfile = async () => {
       }
     })
 
-    // Assignem el títol per a cada comentari
     comments.value = rawComments.map(comment => ({
       ...comment,
       issue_subject: issueTitlesMap[comment.issue_id] || 'Incidència sense títol'
     }))
     
-    // Comptadors
+    // Sincronización local de los contadores en los contadores superiores
     user.value.open_assigned_count = assignedIssues.value.length
     user.value.watched_issues_count = watchedIssues.value.length
     user.value.comments_count = comments.value.length
 
   } catch (error) {
-    console.error('Error carregant el perfil o les seves llistes:', error)
-    alert('Error carregant el perfil o les seves llistes.')
+    user.value = {
+      full_name: 'Error al carregar',
+      name: 'desconegut',
+      bio: 'No s\'ha pogut connectar amb el servidor per obtenir el perfil.'
+    }
   }
 }
+
+// Si la URL del navegador cambia refrescamos los datos al instante
+watch(
+  () => [props.userId, route.params.userId, route.params.id],
+  () => {
+    fetchProfile()
+  }
+)
+
+watch(activeTab, (newTab) => {
+  localStorage.setItem('activeProfileTab', newTab)
+})
 
 onMounted(() => {
   const savedTab = localStorage.getItem('activeProfileTab')
@@ -310,10 +346,6 @@ onMounted(() => {
   
   window.dispatchEvent(new Event('storage'))
   window.addEventListener('storage', fetchProfile)
-})
-
-watch(activeTab, (newTab) => {
-  localStorage.setItem('activeProfileTab', newTab)
 })
 </script>
 

@@ -28,7 +28,26 @@
           <div v-if="issue.comments && issue.comments.length > 0" class="comments-list">
             <div v-for="comment in issue.comments" :key="comment.id" class="comment-card">
               <div class="comment-header">
-                <strong>{{ comment.user?.name || 'Usuari' }}</strong>
+                <router-link
+                  v-if="comment.user?.id"
+                  :to="{ name: 'profile', params: { userId: comment.user.id } }"
+                  class="comment-author-link"
+                >
+                  <img
+                    v-if="comment.user?.avatar_url"
+                    :src="comment.user.avatar_url"
+                    :alt="comment.user.name"
+                    class="comment-avatar"
+                  />
+                  <div v-else class="comment-avatar comment-avatar-fallback">
+                    {{ (comment.user?.name || '?').charAt(0).toUpperCase() }}
+                  </div>
+                  <strong>{{ comment.user?.name || 'Usuari' }}</strong>
+                </router-link>
+                <span v-else class="comment-author-link comment-author-link--plain">
+                  <div class="comment-avatar comment-avatar-fallback">?</div>
+                  <strong>Usuari</strong>
+                </span>
                 <div class="comment-actions">
                   <button @click="startEdit(comment)" class="btn-icon">✏️</button>
                   <button @click="removeComment(comment.id)" class="btn-icon">🗑️</button>
@@ -230,7 +249,12 @@ const removeComment = async (id) => {
 .box h3 { margin-top: 0; border-bottom: 1px solid #f0f0f0; padding-bottom: 10px; color: #555; }
 .description-text { white-space: pre-wrap; line-height: 1.6; }
 .comment-card { background: #f9f9f9; border: 1px solid #eee; padding: 15px; border-radius: 6px; margin-bottom: 10px; }
-.comment-header { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 5px; color: #666; }
+.comment-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; margin-bottom: 8px; color: #666; }
+.comment-author-link { display: flex; align-items: center; gap: 8px; text-decoration: none; color: #33475b; transition: color 0.15s; }
+.comment-author-link:hover strong { color: #008aa8; text-decoration: underline; }
+.comment-author-link--plain { cursor: default; }
+.comment-avatar { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+.comment-avatar-fallback { background: #008aa8; color: white; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: bold; }
 .comment-content { margin: 0; white-space: pre-wrap; }
 .add-comment-box { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; border-top: 1px dashed #ccc; padding-top: 20px; }
 .comment-input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
