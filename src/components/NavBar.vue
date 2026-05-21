@@ -39,6 +39,7 @@ const usersSelector = [
   { id: 5, name: "MicheelMJ", apiKey: "3691c3dbe69d9da1f5452be45572be11" },
   { id: 4, name: "rogerguinovart", apiKey: "f42ff930a1280208deac455fcd4ec990" },
   { id: 3, name: "Michel-MJ", apiKey: "f09674836e81cd0958676d16c6153d1c" },
+  { id: 2, name: "Arnau Hernández", apiKey: "ddff019e8f0abaef01443cf50d4071b6" },
   { id: 6, name: "meritxellsales", apiKey: "63a7908ed1ed188fe930e6431e83e390" }
 ]
 
