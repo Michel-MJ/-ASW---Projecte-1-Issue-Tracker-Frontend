@@ -29,8 +29,20 @@
             <div v-for="comment in issue.comments" :key="comment.id" class="comment-card">
               <div class="comment-header">
                 <strong>{{ comment.user?.name || 'Usuari' }}</strong>
+                <div class="comment-actions">
+                  <button @click="startEdit(comment)" class="btn-icon">✏️</button>
+                  <button @click="removeComment(comment.id)" class="btn-icon">🗑️</button>
+                </div>
               </div>
-              <p class="comment-content">{{ comment.content }}</p>
+
+              <div v-if="editingId === comment.id" class="edit-area">
+                <textarea v-model="editText" class="comment-input" rows="2"></textarea>
+                <div class="edit-buttons">
+                  <button @click="editingId = null" class="btn-cancel">Cancel·lar</button>
+                  <button @click="saveEdit(comment.id)" class="btn-save">Guardar</button>
+                </div>
+              </div>
+              <p v-else class="comment-content">{{ comment.content }}</p>
             </div>
           </div>
           <p v-else class="empty-state">No hi ha cap comentari encara.</p>
@@ -93,12 +105,13 @@ const router = useRouter()
 
 const issue = ref(null)
 const loading = ref(true)
-
-// Variables pel comentari nou
 const newComment = ref('')
 const isSubmittingComment = ref(false)
 
-// Funció separada per carregar/recarregar la issue
+// Estats per edició
+const editingId = ref(null)
+const editText = ref('')
+
 const fetchIssueData = async () => {
   try {
     const response = await api.get(`/issues/${route.params.id}`)
@@ -110,188 +123,104 @@ const fetchIssueData = async () => {
   }
 }
 
-// Carreguem les dades inicials
-onMounted(() => {
-  fetchIssueData()
-})
+onMounted(() => { fetchIssueData() })
 
 const deleteIssue = async () => {
-  if (confirm("Estàs segur que vols eliminar aquesta incidència? Aquesta acció no es pot desfer.")) {
+  if (confirm("Estàs segur que vols eliminar aquesta incidència?")) {
     try {
-      const response = await api.delete(`/issues/${route.params.id}`)
-      if (response.status === 204 || response.status === 200) {
-        router.push({ name: 'home' }) 
-      }
-    } catch (error) {
-      console.error("Error eliminant la issue:", error)
-      alert("No s'ha pogut eliminar la incidència.")
+      await api.delete(`/issues/${route.params.id}`)
+      router.push({ name: 'home' }) 
+    } catch (error) { 
+      alert(error.response?.data?.error || "No s'ha pogut eliminar.") 
     }
   }
 }
 
-// Lògica per enviar el comentari (PATCH)
+// ------------------------------------------------------------------
+// GESTIÓ DE COMENTARIS (Connectat 100% amb el nou backend)
+// ------------------------------------------------------------------
+
+// POST: Crear Comentari
 const submitComment = async () => {
   if (!newComment.value.trim()) return
-
   isSubmittingComment.value = true
+  
   try {
-    await api.patch(`/issues/${route.params.id}`, {
-      issue: {
-        comments_attributes: [
-          { content: newComment.value }
-        ]
-      }
+    await api.post(`/issues/${route.params.id}/comments`, { 
+      comment: { content: newComment.value } 
     })
-    
-    // Netejem el textarea
     newComment.value = ''
-    
-    // Recarreguem els detalls per veure el comentari reflectit
-    await fetchIssueData()
-    
-  } catch (error) {
-    console.error("Error afegint el comentari:", error)
-    alert("Hi ha hagut un problema al publicar el comentari.")
-  } finally {
-    isSubmittingComment.value = false
+    await fetchIssueData() // Recarreguem per veure el nou comentari
+  } catch (e) { 
+    // Mostrem l'error real que ens envia el Ruby (ex: User must exist, etc)
+    alert(e.response?.data?.error || e.response?.data?.errors?.[0] || "Error al publicar el comentari") 
+  } finally { 
+    isSubmittingComment.value = false 
+  }
+}
+
+// PREPARAR EDICIÓ
+const startEdit = (c) => { 
+  editingId.value = c.id
+  editText.value = c.content 
+}
+
+// PATCH: Guardar Edició
+const saveEdit = async (id) => {
+  if (!editText.value.trim()) {
+    alert("El comentari no pot estar buit")
+    return
+  }
+
+  try {
+    await api.patch(`/issues/${route.params.id}/comments/${id}`, { 
+      comment: { content: editText.value } 
+    })
+    editingId.value = null
+    await fetchIssueData() // Recarreguem per veure els canvis
+  } catch (e) { 
+    // Aquí saltarà el 403 Forbidden de Ruby si no ets l'autor
+    alert(e.response?.data?.error || "Error al editar el comentari") 
+  }
+}
+
+// DELETE: Esborrar Comentari
+const removeComment = async (id) => {
+  if(confirm("Segur que vols esborrar aquest comentari?")) {
+    try {
+      await api.delete(`/issues/${route.params.id}/comments/${id}`)
+      await fetchIssueData() // Recarreguem la llista sense el comentari
+    } catch (e) { 
+      // Aquí també saltarà el 403 si intentes esborrar el comentari d'un altre
+      alert(e.response?.data?.error || "Error al esborrar el comentari") 
+    }
   }
 }
 </script>
 
 <style scoped>
-.issue-detail-container {
-  max-width: 1100px;
-  margin: 40px auto;
-  font-family: sans-serif;
-  color: #333;
-}
-
-.issue-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 2px solid #eee;
-  padding-bottom: 20px;
-  margin-bottom: 30px;
-}
-
-.title-area h1 { margin: 0 0 5px 0; color: #2c3e50; }
-.creator { color: #888; font-size: 0.9rem; }
-
-.actions {
-  display: flex;
-  gap: 10px;
-}
-
-.btn-edit {
-  background-color: #3498db;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: bold;
-}
-.btn-edit:hover { background-color: #2980b9; }
-
-.btn-delete {
-  background-color: #e74c3c;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: bold;
-}
-.btn-delete:hover { background-color: #c0392b; }
-
-.main-layout {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 30px;
-}
-
-.box {
-  background: #fff;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  padding: 20px;
-  margin-bottom: 20px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-}
-
+/* Estils existents + estils per la edició */
+.issue-detail-container { max-width: 1100px; margin: 40px auto; font-family: sans-serif; color: #333; }
+.issue-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 20px; margin-bottom: 30px; }
+.actions { display: flex; gap: 10px; }
+.btn-edit { background-color: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+.btn-delete { background-color: #e74c3c; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+.main-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 30px; }
+.box { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
 .box h3 { margin-top: 0; border-bottom: 1px solid #f0f0f0; padding-bottom: 10px; color: #555; }
-
-.description-text {
-  white-space: pre-wrap; 
-  line-height: 1.6;
-}
-
-.comment-card {
-  background: #f9f9f9;
-  border: 1px solid #eee;
-  padding: 15px;
-  border-radius: 6px;
-  margin-bottom: 10px;
-}
-.comment-header { font-size: 0.9rem; margin-bottom: 5px; color: #666; }
+.description-text { white-space: pre-wrap; line-height: 1.6; }
+.comment-card { background: #f9f9f9; border: 1px solid #eee; padding: 15px; border-radius: 6px; margin-bottom: 10px; }
+.comment-header { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 5px; color: #666; }
 .comment-content { margin: 0; white-space: pre-wrap; }
+.add-comment-box { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; border-top: 1px dashed #ccc; padding-top: 20px; }
+.comment-input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+.btn-comment { align-self: flex-end; background-color: #2ecc71; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; }
 
-/* NOU ESTIL PEL FORMULARI DE COMENTARIS */
-.add-comment-box {
-  margin-top: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  border-top: 1px dashed #ccc;
-  padding-top: 20px;
-}
-
-.comment-input {
-  width: 100%;
-  padding: 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  resize: vertical;
-  font-family: inherit;
-  font-size: 0.95rem;
-  box-sizing: border-box;
-}
-
-.comment-input:focus {
-  outline: none;
-  border-color: #3498db;
-}
-
-.btn-comment {
-  align-self: flex-end;
-  background-color: #2ecc71;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: bold;
-}
-
-.btn-comment:hover:not(:disabled) {
-  background-color: #27ae60;
-}
-
-.btn-comment:disabled {
-  background-color: #95a5a6;
-  cursor: not-allowed;
-  opacity: 0.7;
-}
-
-.meta-box ul, .attachments-box ul { list-style: none; padding: 0; margin: 0; }
-.meta-box li, .attachments-box li { padding: 8px 0; border-bottom: 1px solid #f5f5f5; }
-.meta-box li:last-child, .attachments-box li:last-child { border-bottom: none; }
-
-.attachment-link { color: #3498db; text-decoration: none; font-weight: 500; }
-.attachment-link:hover { text-decoration: underline; }
-
-.empty-state { color: #aaa; font-style: italic; }
-.loading-state, .error-state { text-align: center; margin-top: 50px; font-size: 1.2rem; }
-.error-state { color: #e74c3c; }
+/* NOU: Estils botons acció comentari */
+.comment-actions { display: flex; gap: 8px; }
+.btn-icon { background: none; border: none; cursor: pointer; opacity: 0.5; font-size: 1rem; }
+.edit-area { margin-top: 10px; display: flex; flex-direction: column; gap: 5px; }
+.edit-buttons { display: flex; justify-content: flex-end; gap: 5px; }
+.btn-save { background: #3498db; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+.btn-cancel { background: #ccc; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
 </style>

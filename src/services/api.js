@@ -4,7 +4,8 @@ import axios from 'axios'
 const api = axios.create({
   baseURL: 'https://asw-projecte-1-issue-tracker-1278.onrender.com/api', 
   headers: {
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
   }
 })
 
