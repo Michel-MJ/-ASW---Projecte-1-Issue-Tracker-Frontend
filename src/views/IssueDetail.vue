@@ -10,8 +10,11 @@
         <span class="creator">Creada per: {{ issue.user?.name || issue.user?.email || 'Desconegut' }}</span>
       </div>
       <div class="actions">
-        <button @click="$router.push({ name: 'issue-edit', params: { id: issue.id } })" class="btn-edit">Editar Issue</button>
-        <button @click="deleteIssue" class="btn-delete">Eliminar Issue</button>
+        <template v-if="isOwner">
+          <button @click="$router.push({ name: 'issue-edit', params: { id: issue.id } })" class="btn-edit">Editar Issue</button>
+          <button @click="deleteIssue" class="btn-delete">Eliminar Issue</button>
+        </template>
+        <span v-else class="not-owner-msg">Només el creador pot editar o eliminar aquesta incidència.</span>
       </div>
     </header>
 
@@ -147,7 +150,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '../services/api'
 
@@ -161,6 +164,13 @@ const isSubmittingComment = ref(false)
 
 const editingId = ref(null)
 const editText = ref('')
+
+// Cert si l'usuari logat és el creador de la issue
+const isOwner = computed(() => {
+  const myId = String(localStorage.getItem('active_user_id') || '')
+  const creatorId = String(issue.value?.user?.id || '')
+  return myId !== '' && myId === creatorId
+})
 
 const fetchIssueData = async () => {
   try {
@@ -178,13 +188,20 @@ onMounted(() => {
 })
 
 const deleteIssue = async () => {
+  if (!isOwner.value) {
+    alert('Només el creador pot eliminar aquesta incidència.')
+    return
+  }
   if (confirm("Estàs segur que vols eliminar aquesta incidència?")) {
     try {
       await api.delete(`/issues/${route.params.id}`)
-      router.push({ name: 'home' }) 
-    } catch (error) { 
-      alert(error.response?.data?.error || "No s'ha pogut eliminar.") 
+    } catch (error) {
+      if (error.response && error.response.status >= 400) {
+        alert(error.response?.data?.error || "No s'ha pogut eliminar.")
+        return
+      }
     }
+    router.push({ name: 'index' })
   }
 }
 
@@ -244,6 +261,7 @@ const removeComment = async (id) => {
 .actions { display: flex; gap: 10px; }
 .btn-edit { background-color: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; }
 .btn-delete { background-color: #e74c3c; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+.not-owner-msg { font-size: 13px; color: #e74c3c; font-style: italic; }
 .main-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 30px; }
 .box { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
 .box h3 { margin-top: 0; border-bottom: 1px solid #f0f0f0; padding-bottom: 10px; color: #555; }
