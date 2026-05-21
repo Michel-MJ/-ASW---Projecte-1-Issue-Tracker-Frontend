@@ -756,4 +756,8 @@ html, body {
   background: #aedcd8;
   cursor: not-allowed;
 }
+
+.avatar-link {
+  text-decoration: none;
+}
 </style>

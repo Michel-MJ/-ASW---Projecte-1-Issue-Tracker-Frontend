@@ -3,7 +3,7 @@
     
     <aside class="issue-sidebar">
       <div style="text-align: center; margin-bottom: 20px;">
-        <img v-if="user.avatar_url" :src="user.avatar_url" alt="Avatar" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; margin: 0 auto 15px auto; display: block; border: 2px solid #eee;" />
+        <img v-if="user.avatar_url" :src="user.avatar_url" alt="" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; margin: 0 auto 15px auto; display: block; border: 2px solid #eee;" />
         
         <div v-else class="avatar" style="width: 120px; height: 120px; font-size: 50px; margin: 0 auto; margin-bottom: 15px;">
           {{ user.full_name ? user.full_name.charAt(0).toUpperCase() : user.name.charAt(0).toUpperCase() }}
