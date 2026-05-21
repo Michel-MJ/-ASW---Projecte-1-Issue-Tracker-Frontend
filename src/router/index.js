@@ -6,13 +6,14 @@ import IssueDetail from '../views/IssueDetail.vue'
 import IssueForm from '../views/IssueForm.vue'
 import ProfileView from '../views/ProfileView.vue'
 import SettingsView from '../views/SettingsView.vue'
+import ProfileEdit from '../views/ProfileEdit.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
-      path: '/',
-      name: 'home',
+      path: '/issues',
+      name: 'index',
       component: IssueList
     },
     {
@@ -26,14 +27,25 @@ const router = createRouter({
       component: IssueDetail
     },
     {
-      path: '/profile',
+      path: '/profile/:userId?',
       name: 'profile',
-      component: ProfileView
+      component: ProfileView,
+      props: true
+    },
+    {
+      path: '/profile/edit',
+      name: 'profile-edit',
+      component: ProfileEdit
     },
     {
       path: '/settings',
       name: 'settings',
       component: SettingsView
+    },
+    {
+      path: '/issues/:id/edit',
+      name: 'issue-edit',
+      component: IssueForm
     }
   ]
 })

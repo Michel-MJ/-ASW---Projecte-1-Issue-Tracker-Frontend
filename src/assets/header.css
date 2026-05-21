@@ -1,0 +1,100 @@
+.navbar {
+  background: #20242a;
+  padding: 0 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 60px;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.nav-left {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+}
+
+.logo {
+  color: #5adad1;
+  font-weight: 900;
+  font-size: 20px;
+  letter-spacing: 1px;
+}
+
+.nav-link {
+  color: #fff;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 15px;
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.settings-link {
+  color: #8a9ab0;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: bold;
+  transition: color 0.2s ease;
+}
+
+.settings-link:hover {
+  color: #fff;
+}
+
+.settings-icon {
+  font-size: 16px;
+}
+
+.user-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #8a9ab0;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.user-selector label {
+  cursor: pointer;
+}
+
+.user-selector select {
+  background: #2c323b;
+  color: #fff;
+  border: 1px solid #3a424e;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.user-selector select:focus {
+  border-color: #5adad1;
+}
+
+.nav-right > a:not(.settings-link) {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  color: #fff;
+  background: #2c323b;
+  padding: 6px 15px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 0.2s ease-in-out;
+}
+
+.nav-right > a:not(.settings-link):hover {
+  background: #3a424e;
+}

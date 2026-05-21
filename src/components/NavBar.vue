@@ -1,47 +1,59 @@
 <template>
   <nav class="navbar">
-    <div class="navbar-brand">
-      <router-link to="/">Gestor d'Incidències</router-link>
+    
+    <div class="nav-left">
+      <span class="logo">TAIGA</span>
+      <router-link to="/issues" class="nav-link">
+        Issues
+      </router-link>
     </div>
     
-    <div class="navbar-menu">
-      <router-link to="/issues/new">Nova Incidència</router-link>
-      <router-link to="/settings">Ajustaments</router-link>
-      <router-link to="/profile">El meu Perfil</router-link>
+    <div class="nav-right">
       
+      <router-link to="/settings" class="settings-link">
+        <span class="settings-icon">⚙️</span> SETTINGS
+      </router-link>
+
       <div class="user-selector">
         <label for="user-select">Connectat com:</label>
         <select id="user-select" v-model="selectedUserId" @change="changeUser">
-          <option v-for="user in fakeUsers" :key="user.id" :value="user.id">
+          <option v-for="user in usersSelector" :key="user.id" :value="user.id">
             {{ user.name }}
           </option>
         </select>
       </div>
+
+      <router-link to="/profile">El meu Perfil</router-link>
+
     </div>
   </nav>
 </template>
+
 
 <script setup>
 import { ref, onMounted } from 'vue'
 
 // Les nostres API Keys reals de Rails aniran aquí, de moment les deixo harcodejades
 // És la llista d'usuaris
-const fakeUsers = [
-  { id: 1, name: "Usuari 1", apiKey: "token_usuari_1" },
-  { id: 2, name: "Usuari 2", apiKey: "token_usuari_2" },
-  { id: 3, name: "Usuari 3", apiKey: "token_usuari_3" }
+const usersSelector = [
+  { id: 5, name: "MicheelMJ", apiKey: "3691c3dbe69d9da1f5452be45572be11" },
+  { id: 4, name: "rogerguinovart", apiKey: "f42ff930a1280208deac455fcd4ec990" },
+  { id: 3, name: "Michel-MJ", apiKey: "f09674836e81cd0958676d16c6153d1c" },
+  { id: 2, name: "Arnau Hernández", apiKey: "ddff019e8f0abaef01443cf50d4071b6" },
+  { id: 6, name: "meritxellsales", apiKey: "63a7908ed1ed188fe930e6431e83e390" }
 ]
 
-const selectedUserId = ref(1) // Per defecte l'usuari 1
+const selectedUserId = ref(3) // Per defecte l'usuari 3
 
 // Funció que s'executa quan canviem l'usuari al dropdown
 const changeUser = () => {
-  const user = fakeUsers.find(u => u.id === selectedUserId.value)
+  const user = usersSelector.find(u => u.id === selectedUserId.value)
   if (user) {
     // Guardem la API Key al localStorage perquè estigui disponible globalment
     localStorage.setItem('active_api_key', user.apiKey)
+    localStorage.setItem('active_user_id', user.id)
     console.log("Usuari canviat a:", user.name, "API Key desada.")
-    // Opcional: Podríem fer un window.location.reload() aquí si volem forçar un refresc brusc de la vista
+    window.dispatchEvent(new Event('storage'))
   }
 }
 

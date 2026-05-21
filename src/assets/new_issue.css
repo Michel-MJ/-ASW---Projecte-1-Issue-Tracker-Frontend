@@ -36,6 +36,41 @@
 
 .input-subject:focus { border-bottom-color: #40d3b8; }
 
+/* Estilos para el selector múltiple de Tags */
+.select-tags-multi {
+  width: 100%;
+  min-height: 120px;
+  padding: 10px;
+  margin-top: 10px;
+  margin-bottom: 20px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 1rem;
+  color: #555;
+  background-color: #fff;
+  outline: none;
+  transition: border-color 0.3s;
+}
+
+.select-tags-multi:focus {
+  border-color: #40d3b8;
+}
+
+.select-tags-multi option {
+  padding: 8px 12px;
+  margin-bottom: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.select-tags-multi option:checked {
+  background-color: #f0f4f8;
+  color: #40d3b8;
+  font-weight: bold;
+}
+
 .btn-add-tag {
   background: none;
   border: none;
@@ -233,5 +268,4 @@
   outline: none;
   appearance: none; 
   margin-top: 16px;
-
 }
