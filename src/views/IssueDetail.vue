@@ -181,10 +181,15 @@ const deleteIssue = async () => {
   if (confirm("Estàs segur que vols eliminar aquesta incidència?")) {
     try {
       await api.delete(`/issues/${route.params.id}`)
-      router.push({ name: 'home' }) 
-    } catch (error) { 
-      alert(error.response?.data?.error || "No s'ha pogut eliminar.") 
+    } catch (error) {
+      // 204 No Content no té body; alguns clients llencen error igualment
+      // Si és un error real de servidor (4xx/5xx), mostrem l'error i parem
+      if (error.response && error.response.status >= 400) {
+        alert(error.response?.data?.error || "No s'ha pogut eliminar.")
+        return
+      }
     }
+    router.push({ name: 'index' })
   }
 }
 
